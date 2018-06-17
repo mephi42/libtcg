@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e -u -x
+cd "$(dirname "$0")"
+find . src/ \
+    -not -path '*/.git/*' \
+    -a -not -path '*/aarch64/*' \
+    -a -not -path '*/alpha/*' \
+    -a -not -path '*/arm/*' \
+    -a -not -path '*/cris/*' \
+    -a -not -path '*/hppa/*' \
+    -a -not -path '*/lm32/*' \
+    -a -not -path '*/m68k/*' \
+    -a -not -path '*/microblaze/*' \
+    -a -not -path '*/mips/*' \
+    -a -not -path '*/mips64/*' \
+    -a -not -path '*/moxie/*' \
+    -a -not -path '*/nios2/*' \
+    -a -not -path '*/openrisc/*' \
+    -a -not -path '*/ppc/*' \
+    -a -not -path '*/ppc64/*' \
+    -a -not -path '*/riscv/*' \
+    -a -not -path '*/sh4/*' \
+    -a -not -path '*/sparc/*' \
+    -a -not -path '*/sparc64/*' \
+    -a -not -path '*/tilegx/*' \
+    -a -not -path '*/tricore/*' \
+    -a -not -path '*/unicore32/*' \
+    -a -not -path '*/xtensa/*' \
+    -a -not -name '*.d' \
+    -a -not -name '*.o'

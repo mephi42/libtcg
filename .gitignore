@@ -1,0 +1,5 @@
+build/
+.DS_Store
+libtcg.creator.user
+libtcg.files
+libtcg.includes
