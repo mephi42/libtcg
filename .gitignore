@@ -1,5 +1,6 @@
 build/
 qemu-build/
+llvm-build/
 .DS_Store
 libtcg.config
 libtcg.creator

@@ -3,6 +3,8 @@ include env
 PKGS=glib-2.0 pixman-1 zlib
 QEMU=qemu
 QEMU_BUILD=qemu-build
+LLVM=llvm
+LLVM_BUILD=llvm-build
 CFLAGS=\
 	-isystem $(QEMU_BUILD) \
 	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
@@ -70,13 +72,22 @@ configure-qemu:
 
 .PHONY: build-qemu
 build-qemu:
-		cd qemu-build && $(MAKE)
+		cd $(QEMU_BUILD) && $(MAKE)
 		gobjcopy --strip-symbol _main $(QEMU_BUILD)/vl.o $(QEMU_BUILD)/vl_nomain.o
+
+.PHONY: configure-llvm
+configure-llvm:
+		mkdir -p $(LLVM_BUILD)
+		cd $(LLVM_BUILD) && cmake -DTARGETS_TO_BUILD= ../$(LLVM)
+
+.PHONY: build-llvm
+build-llvm:
+		cd $(LLVM_BUILD) && $(MAKE) LLVMCore
 
 .PHONY: project
 project:
-		(find . \
-			-not -path '*/.git/*' \
+		(find . -type f \
+			-a -not -path '*/.git/*' \
 			-a -not -path '*/aarch64/*' \
 			-a -not -path '*/alpha/*' \
 			-a -not -path '*/arm/*' \
