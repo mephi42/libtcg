@@ -1,5 +1,8 @@
 build/
+qemu-build/
 .DS_Store
+libtcg.config
+libtcg.creator
 libtcg.creator.user
 libtcg.files
 libtcg.includes

@@ -1,14 +1,17 @@
 include env
 
 PKGS=glib-2.0 pixman-1 zlib
+QEMU=qemu
+QEMU_BUILD=qemu-build
 CFLAGS=\
-	-isystem build/ \
-	-isystem build/$(TARGET)-softmmu \
-	-isystem src/ \
-	-isystem src/include \
-	-isystem src/target/$(TARGET) \
-	-isystem src/tcg \
-	-isystem src/tcg/$(HOST) \
+	-isystem $(QEMU_BUILD) \
+	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
+	-iquote include \
+	-isystem $(QEMU) \
+	-isystem $(QEMU)/include \
+	-isystem $(QEMU)/target/$(TARGET) \
+	-isystem $(QEMU)/tcg \
+	-isystem $(QEMU)/tcg/$(HOST) \
 	$$(pkg-config --cflags $(PKGS)) \
 	-DNEED_CPU_H \
 	-g \
@@ -25,29 +28,31 @@ clean:
 		rm -f $(TCG_GEN)
 
 TCG_GEN_SRC=\
-	tcg-gen.c \
-	$(shell find build \
+	src/libtcg.c \
+	src/tcg-gen.c \
+	$(shell find $(QEMU_BUILD) \
 		-name "*.o" \
-		-a -not -path "build/hw/pci/pci-stub.o" \
-		-a -not -path "build/qemu-img.o" \
-		-a -not -path "build/qemu-io.o" \
-		-a -not -path "build/qemu-nbd.o" \
-		-a -not -path "build/qga/*.o" \
-		-a -not -path "build/stubs/*.o" \
-		-a -not -path "build/vl.o") \
-	build/stubs/qmp_memory_device.o \
-	build/stubs/target-get-monitor-def.o \
-	build/stubs/target-monitor-defs.o \
-	build/stubs/vmgenid.o \
-	build/stubs/xen-hvm.o
+		-a -not -path "$(QEMU_BUILD)/hw/pci/pci-stub.o" \
+		-a -not -path "$(QEMU_BUILD)/qemu-img.o" \
+		-a -not -path "$(QEMU_BUILD)/qemu-io.o" \
+		-a -not -path "$(QEMU_BUILD)/qemu-nbd.o" \
+		-a -not -path "$(QEMU_BUILD)/qga/*.o" \
+		-a -not -path "$(QEMU_BUILD)/stubs/*.o" \
+		-a -not -path "$(QEMU_BUILD)/vl.o") \
+	$(QEMU_BUILD)/stubs/qmp_memory_device.o \
+	$(QEMU_BUILD)/stubs/target-get-monitor-def.o \
+	$(QEMU_BUILD)/stubs/target-monitor-defs.o \
+	$(QEMU_BUILD)/stubs/vmgenid.o \
+	$(QEMU_BUILD)/stubs/xen-hvm.o
 
 $(TCG_GEN): $(TCG_GEN_SRC)
+		mkdir -p $(shell dirname $(TCG_GEN))
 		gcc $(CFLAGS) $(LDFLAGS) $(TCG_GEN_SRC) -o $(TCG_GEN)
 
 .PHONY: configure-qemu
 configure-qemu:
-		mkdir -p build
-		cd build && ../src/configure \
+		mkdir -p $(QEMU_BUILD)
+		cd $(QEMU_BUILD) && ../$(QEMU)/configure \
 			--target-list=$(TARGET)-softmmu \
 			--disable-fdt \
 			--audio-drv-list= \
@@ -65,17 +70,46 @@ configure-qemu:
 
 .PHONY: build-qemu
 build-qemu:
-		cd build && $(MAKE)
-		gobjcopy --strip-symbol _main build/vl.o build/vl_nomain.o
+		cd qemu-build && $(MAKE)
+		gobjcopy --strip-symbol _main $(QEMU_BUILD)/vl.o $(QEMU_BUILD)/vl_nomain.o
 
 .PHONY: project
 project:
-		./ls-files >libtcg.files
-		(echo 'build' && \
-			echo 'build/$(TARGET)-softmmu' && \
-			echo 'src/' && \
-			echo 'src/include' && \
-			echo 'src/linux-user/$(TARGET)' && \
-			echo 'src/target/$(TARGET)' && \
-			echo 'src/tcg' && \
-			echo 'src/tcg/$(HOST)') >libtcg.includes
+		(find . \
+			-not -path '*/.git/*' \
+			-a -not -path '*/aarch64/*' \
+			-a -not -path '*/alpha/*' \
+			-a -not -path '*/arm/*' \
+			-a -not -path '*/cris/*' \
+			-a -not -path '*/hppa/*' \
+			-a -not -path '*/lm32/*' \
+			-a -not -path '*/m68k/*' \
+			-a -not -path '*/microblaze/*' \
+			-a -not -path '*/mips/*' \
+			-a -not -path '*/mips64/*' \
+			-a -not -path '*/moxie/*' \
+			-a -not -path '*/nios2/*' \
+			-a -not -path '*/openrisc/*' \
+			-a -not -path '*/ppc/*' \
+			-a -not -path '*/ppc64/*' \
+			-a -not -path '*/riscv/*' \
+			-a -not -path '*/sh4/*' \
+			-a -not -path '*/sparc/*' \
+			-a -not -path '*/sparc64/*' \
+			-a -not -path '*/tilegx/*' \
+			-a -not -path '*/tricore/*' \
+			-a -not -path '*/unicore32/*' \
+			-a -not -path '*/xtensa/*' \
+			-a -not -name '*.d' \
+			-a -not -name '*.o') >libtcg.files
+		(echo '$(QEMU_BUILD)' && \
+			echo '$(QEMU_BUILD)/$(TARGET)-softmmu' && \
+			echo 'include' && \
+			echo '$(QEMU)' && \
+			echo '$(QEMU)/include' && \
+			echo '$(QEMU)/linux-user/$(TARGET)' && \
+			echo '$(QEMU)/target/$(TARGET)' && \
+			echo '$(QEMU)/tcg' && \
+			echo '$(QEMU)/tcg/$(HOST)') >libtcg.includes
+		echo '#define NEED_CPU_H' >libtcg.config
+		echo '[General]' >libtcg.creator

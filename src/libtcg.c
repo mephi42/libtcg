@@ -1,16 +1,12 @@
-#include <string.h>
+#include "libtcg.h"
 
 #include "qemu/osdep.h"
-#include "qemu-common.h"
 #include "cpu.h"
 #include "exec/exec-all.h"
-#include "tcg/tcg.h"
 #include "sysemu/sysemu.h"
-#include "qemu-common.h"
 #include "migration/misc.h"
 #include "sysemu/accel.h"
 #include "hw/boards.h"
-#include "hw/s390x/s390-virtio-ccw.h"
 #include "qapi/error.h"
 #include "qemu/config-file.h"
 #include "qemu/option.h"
@@ -35,14 +31,9 @@ static QemuOptsList qemu_boot_opts = {
     .desc = { { } },
 };
 
-int main(int argc, char ** argv) {
+struct CPUState *libtcg_init(char *path)
+{
     struct S390CPU *cpu;
-    struct TranslationBlock *tb;
-
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s file\n", argv[0]);
-        return EXIT_FAILURE;
-    }
 
     // vl.c:2936
     qemu_init_cpu_list();
@@ -73,9 +64,9 @@ int main(int argc, char ** argv) {
     // vl.c:4269
     migration_object_init();
     // vl.c:4279
-    bios_name = "build/pc-bios/s390-ccw.img";
+    bios_name = "qemu-build/pc-bios/s390-ccw.img";
     // vl.c:4302
-    current_machine->kernel_filename = argv[1];
+    current_machine->kernel_filename = path;
     current_machine->kernel_cmdline = "";
     // vl.c:4461
     current_machine->ram_size = ram_size;
@@ -84,10 +75,8 @@ int main(int argc, char ** argv) {
     // vl.c:4477
     machine_run_board_init(current_machine);
     // vl.c:4561
-    if (rom_check_and_register_reset() != 0) {
-        fprintf(stderr, "%s: rom_check_and_register_reset() failed\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+    if (rom_check_and_register_reset() != 0)
+        return NULL;
     // vl.c:4572
     qemu_system_reset(SHUTDOWN_CAUSE_NONE);
 
@@ -95,19 +84,5 @@ int main(int argc, char ** argv) {
     cpu = S390_CPU(first_cpu);
     do_restart_interrupt(&cpu->env);
 
-    // translate-all.c:1250
-    tb = tcg_tb_alloc(tcg_ctx);
-    if (!tb) {
-        fprintf(stderr, "%s: tcg_tb_alloc() failed\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-    // translate-all.c:1272
-    cpu_get_tb_cpu_state(&cpu->env, &tb->pc, &tb->cs_base, &tb->flags);
-    // translate-all.c:1285
-    tcg_func_start(tcg_ctx);
-    // translate-all.c:1288
-    gen_intermediate_code(&cpu->parent_obj, tb);
-
-    // print results
-    tcg_dump_ops(tcg_ctx);
+    return &cpu->parent_obj;
 }
