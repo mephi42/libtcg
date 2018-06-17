@@ -106,3 +106,8 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
     gen_intermediate_code(cpu, tb);
     return tcg_ctx;
 }
+
+void libtcg_dump_ops(struct TCGContext *s)
+{
+    tcg_dump_ops(s);
+}

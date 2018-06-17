@@ -49,9 +49,13 @@ TCG_GEN_OBJS=\
 	$(QEMU_BUILD)/stubs/vmgenid.o \
 	$(QEMU_BUILD)/stubs/xen-hvm.o
 
-$(BUILD)/%.o: $(SRC)/%.c
+$(BUILD)/%.o: $(SRC)/%.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
+		mkdir -p $(shell dirname $@)
+		$(CXX) -c $(CFLAGS) $< -o $@
 
 $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $(TCG_GEN))
