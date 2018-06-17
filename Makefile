@@ -16,13 +16,23 @@ CFLAGS=\
 	-isystem $(QEMU)/target/$(TARGET) \
 	-isystem $(QEMU)/tcg \
 	-isystem $(QEMU)/tcg/$(HOST) \
+	-isystem $(LLVM)/include \
+	-isystem $(LLVM_BUILD)/include \
 	$$(pkg-config --cflags $(PKGS)) \
 	-DNEED_CPU_H \
 	-g \
 	-Wall \
 	-Wextra \
 	-Werror
-LDFLAGS=$$(pkg-config --libs $(PKGS)) -framework IOKit
+CXXFLAGS=$(CFLAGS) -std=c++11
+LDFLAGS=\
+	-L$(LLVM_BUILD)/lib \
+	-lLLVMCore \
+	-lLLVMSupport \
+	-lLLVMDemangle \
+	-lLLVMBinaryFormat \
+	$$(pkg-config --libs $(PKGS)) \
+	-framework IOKit
 
 TCG_GEN=$(BUILD)/tcg-gen
 
@@ -55,7 +65,7 @@ $(BUILD)/%.o: $(SRC)/%.c $(wildcard include/*.h)
 
 $(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
-		$(CXX) -c $(CFLAGS) $< -o $@
+		$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $(TCG_GEN))
@@ -88,11 +98,11 @@ build-qemu:
 .PHONY: configure-llvm
 configure-llvm:
 		mkdir -p $(LLVM_BUILD)
-		cd $(LLVM_BUILD) && cmake -DTARGETS_TO_BUILD= ../$(LLVM)
+		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off ../$(LLVM)
 
 .PHONY: build-llvm
 build-llvm:
-		cd $(LLVM_BUILD) && $(MAKE) LLVMCore
+		cd $(LLVM_BUILD) && $(MAKE) LLVMCore LLVMSupport LLVMDemangle LLVMBinaryFormat
 
 .PHONY: project
 project:
@@ -131,6 +141,8 @@ project:
 			echo '$(QEMU)/linux-user/$(TARGET)' && \
 			echo '$(QEMU)/target/$(TARGET)' && \
 			echo '$(QEMU)/tcg' && \
-			echo '$(QEMU)/tcg/$(HOST)') >libtcg.includes
+			echo '$(QEMU)/tcg/$(HOST)' && \
+			echo '$(LLVM)/include' && \
+			echo '$(LLVM_BUILD)/include') >libtcg.includes
 		echo '#define NEED_CPU_H' >libtcg.config
 		echo '[General]' >libtcg.creator
