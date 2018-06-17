@@ -5,6 +5,8 @@ QEMU=qemu
 QEMU_BUILD=qemu-build
 LLVM=llvm
 LLVM_BUILD=llvm-build
+SRC=src
+BUILD=build
 CFLAGS=\
 	-isystem $(QEMU_BUILD) \
 	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
@@ -22,16 +24,16 @@ CFLAGS=\
 	-Werror
 LDFLAGS=$$(pkg-config --libs $(PKGS)) -framework IOKit
 
-TCG_GEN=build/tcg-gen
+TCG_GEN=$(BUILD)/tcg-gen
 
 all: $(TCG_GEN)
 
 clean:
 		rm -f $(TCG_GEN)
 
-TCG_GEN_SRC=\
-	src/libtcg.c \
-	src/tcg-gen.c \
+TCG_GEN_OBJS=\
+	$(BUILD)/libtcg.o \
+	$(BUILD)/tcg-gen.o \
 	$(shell find $(QEMU_BUILD) \
 		-name "*.o" \
 		-a -not -path "$(QEMU_BUILD)/hw/pci/pci-stub.o" \
@@ -47,9 +49,13 @@ TCG_GEN_SRC=\
 	$(QEMU_BUILD)/stubs/vmgenid.o \
 	$(QEMU_BUILD)/stubs/xen-hvm.o
 
-$(TCG_GEN): $(TCG_GEN_SRC)
+$(BUILD)/%.o: $(SRC)/%.c
+		mkdir -p $(shell dirname $@)
+		$(CC) -c $(CFLAGS) $< -o $@
+
+$(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $(TCG_GEN))
-		gcc $(CFLAGS) $(LDFLAGS) $(TCG_GEN_SRC) -o $(TCG_GEN)
+		$(CXX) $(LDFLAGS) $(TCG_GEN_OBJS) -o $(TCG_GEN)
 
 .PHONY: configure-qemu
 configure-qemu:

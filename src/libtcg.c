@@ -12,6 +12,7 @@
 #include "qemu/option.h"
 #include "internal.h"
 #include "hw/loader.h"
+#include "tcg/tcg.h"
 
 // vl.c:274
 static QemuOptsList qemu_machine_opts = {
@@ -85,4 +86,23 @@ struct CPUState *libtcg_init(char *path)
     do_restart_interrupt(&cpu->env);
 
     return &cpu->parent_obj;
+}
+
+static __thread struct TranslationBlock *tb;
+
+struct TCGContext *libtcg_gen(struct CPUState *cpu)
+{
+    // translate-all.c:1250
+    if (!tb) {
+        tb = tcg_tb_alloc(tcg_ctx);
+        if (!tb)
+            return NULL;
+    }
+    // translate-all.c:1272
+    cpu_get_tb_cpu_state(&S390_CPU(cpu)->env, &tb->pc, &tb->cs_base, &tb->flags);
+    // translate-all.c:1285
+    tcg_func_start(tcg_ctx);
+    // translate-all.c:1288
+    gen_intermediate_code(cpu, tb);
+    return tcg_ctx;
 }
