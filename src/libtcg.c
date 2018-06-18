@@ -49,7 +49,7 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:2966
     qemu_add_opts(&qemu_boot_opts);
     // vl.c:3956
-    ram_size = 1 * 1024 * 1024 * 1024;
+    ram_size = RAM_SIZE;
     // vl.c:3995
     current_machine = MACHINE(object_new("s390-ccw-virtio-3.0-machine"));
     // vl.c:4000
@@ -81,9 +81,10 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:4572
     qemu_system_reset(SHUTDOWN_CAUSE_NONE);
 
-    // set pc
+    // set pc, assume PER is irrelevant
     cpu = S390_CPU(first_cpu);
     do_restart_interrupt(&cpu->env);
+    cpu->env.psw.mask &= ~ PSW_MASK_PER;
 
     return &cpu->parent_obj;
 }
@@ -105,9 +106,4 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
     // translate-all.c:1288
     gen_intermediate_code(cpu, tb);
     return tcg_ctx;
-}
-
-void libtcg_dump_ops(struct TCGContext *s)
-{
-    tcg_dump_ops(s);
 }

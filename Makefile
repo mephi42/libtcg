@@ -12,6 +12,7 @@ CFLAGS=\
 	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
 	-iquote include \
 	-isystem $(QEMU) \
+	-isystem $(QEMU)/accel/tcg \
 	-isystem $(QEMU)/include \
 	-isystem $(QEMU)/target/$(TARGET) \
 	-isystem $(QEMU)/tcg \
@@ -43,6 +44,7 @@ clean:
 TCG_GEN_OBJS=\
 	$(BUILD)/libtcg.o \
 	$(BUILD)/tcg-gen.o \
+	$(BUILD)/tcg2llvm.o \
 	$(shell find $(QEMU_BUILD) \
 		-name "*.o" \
 		-a -not -path "$(QEMU_BUILD)/hw/pci/pci-stub.o" \
@@ -132,6 +134,7 @@ project:
 			echo '$(QEMU_BUILD)/$(TARGET)-softmmu' && \
 			echo 'include' && \
 			echo '$(QEMU)' && \
+			echo '$(QEMU)/accel/tcg' && \
 			echo '$(QEMU)/include' && \
 			echo '$(QEMU)/linux-user/$(TARGET)' && \
 			echo '$(QEMU)/target/$(TARGET)' && \

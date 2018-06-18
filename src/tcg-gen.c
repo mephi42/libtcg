@@ -1,14 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "qemu/osdep.h"
+
 #include "libtcg.h"
 #include "llvm-c/Core.h"
+#include "tcg/tcg.h"
+#include "tcg2llvm.h"
 
 int main(int argc, char ** argv)
 {
     struct CPUState *cpu;
     struct TCGContext *s;
-    LLVMBuilderRef llvm_builder;
+    struct S390CPU *s390_cpu;
+    struct llvm llvm;
 
     if (argc != 2) {
         fprintf(stderr, "Usage: %s file\n", argv[0]);
@@ -17,17 +22,20 @@ int main(int argc, char ** argv)
 
     cpu = libtcg_init(argv[1]);
     if (!cpu) {
-        fprintf(stderr, "%s: libtcg_init() failed\n", argv[0]);
+        fprintf(stderr, "libtcg_init() failed\n");
         return EXIT_FAILURE;
     }
 
     s = libtcg_gen(cpu);
     if (!s) {
-        fprintf(stderr, "%s: libtcg_gen() failed\n", argv[0]);
+        fprintf(stderr, "libtcg_gen() failed\n");
         return EXIT_FAILURE;
     }
 
-    libtcg_dump_ops(s);
+    tcg_dump_ops(s);
 
-    llvm_builder = LLVMCreateBuilder();
+    s390_cpu = S390_CPU(cpu);
+    llvm_init(&llvm, argv[1]);
+    llvm_convert_tb(&llvm, s, s390_cpu->env.psw.addr);
+    LLVMDumpModule(llvm.module);
 }
