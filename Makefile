@@ -24,7 +24,6 @@ CFLAGS=\
 	-Wall \
 	-Wextra \
 	-Werror
-CXXFLAGS=$(CFLAGS) -std=c++11
 LDFLAGS=\
 	-L$(LLVM_BUILD)/lib \
 	-lLLVMCore \
@@ -62,10 +61,6 @@ TCG_GEN_OBJS=\
 $(BUILD)/%.o: $(SRC)/%.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CC) -c $(CFLAGS) $< -o $@
-
-$(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
-		mkdir -p $(shell dirname $@)
-		$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $(TCG_GEN))
