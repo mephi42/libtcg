@@ -102,8 +102,6 @@ void llvm_init(struct llvm *llvm, const char *path)
     llvm->cpu = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPU)), "cpu");
     llvm->cpu_env = LLVMBuildGEP(llvm->builder, llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets), "env");
     llvm->builder = LLVMCreateBuilder();
-    memset(&llvm->labels, 0, sizeof(llvm->labels));
-    memset(&llvm->locals, 0, sizeof(llvm->locals));
     llvm->image_size = get_image_size(path);
     llvm->memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
     llvm_init_main(llvm);
@@ -126,22 +124,15 @@ static LLVMBasicBlockRef llvm_bb_for_label(struct llvm *llvm, LLVMValueRef llvm_
     return llvm->labels[label->id];
 }
 
-static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var);
+static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TCGArg base, TCGArg offset, LLVMTypeRef type);
 
 static LLVMValueRef llvm_global_var(struct llvm *llvm, struct TCGContext *s, TCGTemp *temp)
 {
-    LLVMValueRef llvm_base_ptr;
-    LLVMValueRef llvm_offsets[1];
-    LLVMValueRef llvm_raw_ptr;
-
     if (!temp->mem_base) {
         fprintf(stderr, "Unsupported temp: %s\n", temp->name);
         abort();
     }
-    llvm_base_ptr = llvm_var(llvm, s, temp_arg(temp->mem_base));
-    llvm_offsets[0] = LLVMConstInt(LLVMInt32Type(), temp->mem_offset, true);
-    llvm_raw_ptr = LLVMBuildGEP(llvm->builder, llvm_base_ptr, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
-    return LLVMBuildBitCast(llvm->builder, llvm_raw_ptr, LLVMPointerType(llvm_type(temp->type), 0), temp->name);
+    return llvm_base_offset(llvm, s, temp_arg(temp->mem_base), temp->mem_offset, llvm_type(temp->type));
 }
 
 static LLVMValueRef llvm_local_var(struct llvm *llvm, struct TCGContext *s, TCGTemp *temp)
@@ -166,9 +157,6 @@ static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var
 {
     TCGTemp *temp = arg_temp(var);
 
-    if (temp == tcgv_i32_temp((TCGv_i32)cpu_env))
-        return llvm->cpu_env;
-
     if (temp->temp_global)
         return llvm_global_var(llvm, s, temp);
     else
@@ -182,16 +170,24 @@ static LLVMValueRef llvm_var_value(struct llvm *llvm, struct TCGContext *s, TCGA
 
 static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TCGArg base, TCGArg offset, LLVMTypeRef type)
 {
-    LLVMValueRef llvm_base = llvm_var_value(llvm, s, base);
-    LLVMValueRef llvm_offset = LLVMConstInt(LLVMTypeOf(llvm_base), (int32_t)offset, false);
-    LLVMValueRef llvm_addr = LLVMBuildAdd(llvm->builder, llvm_base, llvm_offset, llvm_unnamed);
-    LLVMValueRef llvm_offsets[] = {
-        LLVMConstInt(LLVMInt32Type(), 0, false),
-        llvm_addr,
-    };
-    LLVMValueRef u8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+    LLVMValueRef llvm_offset = LLVMConstInt(LLVMInt64Type(), (int32_t)offset, false);
+    LLVMValueRef i8_ptr;
 
-    return LLVMBuildBitCast(llvm->builder, u8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
+    if (arg_temp(base) == tcgv_i32_temp((TCGv_i32)cpu_env)) {
+        LLVMValueRef llvm_offsets[] = {
+            llvm_offset,
+        };
+        i8_ptr = LLVMBuildGEP(llvm->builder, llvm->cpu_env, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+    } else {
+        LLVMValueRef llvm_base = llvm_var_value(llvm, s, base);
+        LLVMValueRef llvm_addr = LLVMBuildAdd(llvm->builder, llvm_base, llvm_offset, llvm_unnamed);
+        LLVMValueRef llvm_offsets[] = {
+            LLVMConstInt(LLVMInt32Type(), 0, false),
+            llvm_addr,
+        };
+        i8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+    }
+    return LLVMBuildBitCast(llvm->builder, i8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
 }
 
 typedef LLVMValueRef (*llvm_op2_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
@@ -218,7 +214,10 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
     LLVMBasicBlockRef llvm_bb;
     struct TCGOp *op;
 
-    easy_snprintf(name, "i_%"PRIx64, pc);
+    memset(&llvm->labels, 0, sizeof(llvm->labels));
+    memset(&llvm->locals, 0, sizeof(llvm->locals));
+
+    easy_snprintf(name, "pc_0x%"PRIx64, pc);
     llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMInt64Type(), NULL, 0, false));
     llvm_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
     LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
@@ -354,6 +353,12 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_mov_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
             LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
+
+            // Doc says t0 and t1 must have the same size, but despite that
+            // tcg_gen_extrl_i64_i32() puts 64-bit t1 into 32-bit t0.
+            if (LLVMTypeOf(t0) == LLVMPointerType(LLVMInt32Type(), 0) &&
+                    LLVMTypeOf(t1) == LLVMInt64Type())
+                t1 = LLVMBuildTrunc(llvm->builder, t1, LLVMInt32Type(), llvm_unnamed);
 
             LLVMBuildStore(llvm->builder, t1, t0);
             break;
