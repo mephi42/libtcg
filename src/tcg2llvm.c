@@ -190,14 +190,26 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TC
     return LLVMBuildBitCast(llvm->builder, i8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
 }
 
-typedef LLVMValueRef (*llvm_op2_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
+typedef LLVMValueRef (*llvm_bin_op_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
 
-static LLVMValueRef llvm_bin_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_op2_f f, TCGArg op2)
+static LLVMValueRef llvm_bin_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_bin_op_f f, TCGArg op2)
 {
     LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
     LLVMValueRef llvm_op1 = llvm_var_value(llvm, s, op1);
     LLVMValueRef llvm_op2 = llvm_var_value(llvm, s, op2);
     LLVMValueRef result = f(llvm->builder, llvm_op1, llvm_op2, llvm_unnamed);
+
+    return LLVMBuildStore(llvm->builder, result, llvm_dst);
+}
+
+typedef LLVMValueRef (*llvm_cast_op_f)(LLVMBuilderRef, LLVMValueRef, LLVMTypeRef, const char *);
+
+static LLVMValueRef llvm_cast_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, llvm_cast_op_f f, TCGArg op)
+{
+    LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
+    LLVMTypeRef type = LLVMGetElementType(LLVMTypeOf(llvm_dst));
+    LLVMValueRef llvm_op = llvm_var_value(llvm, s, op);
+    LLVMValueRef result = f(llvm->builder, llvm_op, type, llvm_unnamed);
 
     return LLVMBuildStore(llvm->builder, result, llvm_dst);
 }
@@ -363,6 +375,20 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, t1, t0);
             break;
         }
+        case INDEX_op_ext8s_i32:
+        case INDEX_op_ext8s_i64:
+        case INDEX_op_ext16s_i32:
+        case INDEX_op_ext16s_i64:
+        case INDEX_op_ext32s_i64:
+            llvm_cast_op(llvm, s, op->args[0], &LLVMBuildSExt, op->args[1]);
+            break;
+        case INDEX_op_ext8u_i32:
+        case INDEX_op_ext8u_i64:
+        case INDEX_op_ext16u_i32:
+        case INDEX_op_ext16u_i64:
+        case INDEX_op_ext32u_i64:
+            llvm_cast_op(llvm, s, op->args[0], &LLVMBuildZExt, op->args[1]);
+            break;
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);
             return NULL;
