@@ -190,6 +190,17 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TC
     return LLVMBuildBitCast(llvm->builder, i8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
 }
 
+typedef LLVMValueRef (*llvm_un_op_f)(LLVMBuilderRef, LLVMValueRef, const char *);
+
+static LLVMValueRef llvm_un_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, llvm_un_op_f f, TCGArg op)
+{
+    LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
+    LLVMValueRef llvm_op = llvm_var_value(llvm, s, op);
+    LLVMValueRef result = f(llvm->builder, llvm_op, llvm_unnamed);
+
+    return LLVMBuildStore(llvm->builder, result, llvm_dst);
+}
+
 typedef LLVMValueRef (*llvm_bin_op_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
 
 static LLVMValueRef llvm_bin_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_bin_op_f f, TCGArg op2)
@@ -398,6 +409,10 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_sub_i64:
             llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildSub, op->args[2]);
             break;
+        case INDEX_op_neg_i32:
+        case INDEX_op_neg_i64:
+            llvm_un_op(llvm, s, op->args[0], &LLVMBuildNeg, op->args[1]);
+            break;
         case INDEX_op_mul_i32:
         case INDEX_op_mul_i64:
             llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildMul, op->args[2]);
@@ -421,6 +436,14 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_or_i32:
         case INDEX_op_or_i64:
             llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildOr, op->args[2]);
+            break;
+        case INDEX_op_xor_i32:
+        case INDEX_op_xor_i64:
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildXor, op->args[2]);
+            break;
+        case INDEX_op_not_i32:
+        case INDEX_op_not_i64:
+            llvm_un_op(llvm, s, op->args[0], &LLVMBuildNot, op->args[1]);
             break;
         case INDEX_op_mov_i32:
         case INDEX_op_mov_i64: {
