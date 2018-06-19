@@ -349,9 +349,21 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_sub_i64:
             llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildSub, op->args[2]);
             break;
+        case INDEX_op_mul_i32:
+        case INDEX_op_mul_i64:
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildMul, op->args[2]);
+            break;
         case INDEX_op_shl_i32:
         case INDEX_op_shl_i64:
             llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildShl, op->args[2]);
+            break;
+        case INDEX_op_shr_i32:
+        case INDEX_op_shr_i64:
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildLShr, op->args[2]);
+            break;
+        case INDEX_op_sar_i32:
+        case INDEX_op_sar_i64:
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildAShr, op->args[2]);
             break;
         case INDEX_op_and_i32:
         case INDEX_op_and_i64:
@@ -395,6 +407,26 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), 0, false));
             llvm_bb = NULL;
             break;
+        case INDEX_op_deposit_i32:
+        case INDEX_op_deposit_i64: {
+            LLVMValueRef dest = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
+            LLVMValueRef t2 = llvm_var_value(llvm, s, op->args[2]);
+            uint16_t pos = (int32_t)op->args[3];
+            LLVMTypeRef type = (op->opc == INDEX_op_deposit_i32) ? LLVMInt32Type() : LLVMInt64Type();
+            LLVMValueRef llvm_pos = LLVMConstInt(type, pos, false);
+            uint8_t len = (int32_t)op->args[4];
+            uint64_t mask = ((1ULL << len) - 1) << pos;
+            LLVMValueRef t1_mask = LLVMConstInt(type, ~mask, false);
+            LLVMValueRef t1_masked = LLVMBuildAnd(llvm->builder, t1, t1_mask, llvm_unnamed);
+            LLVMValueRef t2_shifted = LLVMBuildShl(llvm->builder, t2, llvm_pos, llvm_unnamed);
+            LLVMValueRef t2_mask = LLVMConstInt(type, mask, false);
+            LLVMValueRef t2_masked = LLVMBuildAnd(llvm->builder, t2_shifted, t2_mask, llvm_unnamed);
+            LLVMValueRef val = LLVMBuildOr(llvm->builder, t1_masked, t2_masked, llvm_unnamed);
+
+            LLVMBuildStore(llvm->builder, val, dest);
+            break;
+        }
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);
             return NULL;
