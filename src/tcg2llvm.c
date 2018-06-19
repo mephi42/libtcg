@@ -252,21 +252,22 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
             LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
-            TCGMemOp flags = (TCGMemOp)op->args[2];
+            TCGMemOpIdx flags = (TCGMemOpIdx)op->args[2];
+            TCGMemOp memop = get_memop(flags);
             LLVMValueRef llvm_offsets[] = {
                 LLVMConstInt(LLVMInt32Type(), 0, false),
                 t1v,
             };
             LLVMValueRef u8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
-            LLVMTypeRef load_type = llvm_memop_type(flags);
+            LLVMTypeRef load_type = llvm_memop_type(memop);
             LLVMValueRef signed_ptr = LLVMBuildBitCast(llvm->builder, u8_ptr, LLVMPointerType(load_type, 0), llvm_unnamed);
             LLVMValueRef signed_val = LLVMBuildLoad(llvm->builder, signed_ptr, llvm_unnamed);
             LLVMValueRef endian_val = (load_type == LLVMInt64Type()) ?
                         signed_val :
-                        ((flags & MO_SIGN) ?
+                        ((memop & MO_SIGN) ?
                              LLVMBuildSExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed) :
                              LLVMBuildZExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed));
-            LLVMValueRef val = (flags & MO_BSWAP) ?
+            LLVMValueRef val = (memop & MO_BSWAP) ?
                     LLVMBuildBSwap(llvm->builder, endian_val) :
                     endian_val;
 
