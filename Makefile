@@ -67,9 +67,29 @@ $(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CXX) -c $(CXXFLAGS) $< -o $@
 
+$(BUILD)/%.bc: $(QEMU)/%.c
+		mkdir -p $(shell dirname $@)
+		clang -c -emit-llvm $(CFLAGS) -Wno-error $< -o $@
+
+$(BUILD)/%.bc: $(SRC)/%.c $(wildcard include/*.h)
+		mkdir -p $(shell dirname $@)
+		clang -c -emit-llvm $(CFLAGS) -Wno-error $< -o $@
+
 $(TCG_GEN): $(TCG_GEN_OBJS)
-		mkdir -p $(shell dirname $(TCG_GEN))
+		mkdir -p $(shell dirname $@)
 		$(CXX) $(LDFLAGS) $(TCG_GEN_OBJS) -o $(TCG_GEN)
+
+RUNTIME_OBJECTS=\
+	$(BUILD)/fpu/softfloat.bc \
+	$(BUILD)/runtime-stubs.bc \
+	$(BUILD)/target/s390x/cc_helper.bc \
+	$(BUILD)/target/s390x/fpu_helper.bc \
+	$(BUILD)/target/s390x/helper.bc \
+	$(BUILD)/target/s390x/mem_helper.bc \
+	$(BUILD)/tcg/tcg-common.bc
+
+.PHONY: runtime
+runtime: $(RUNTIME_OBJECTS)
 
 .PHONY: configure-qemu
 configure-qemu:
@@ -135,7 +155,8 @@ project:
 			-a -not -path '*/unicore32/*' \
 			-a -not -path '*/xtensa/*' \
 			-a -not -name '*.d' \
-			-a -not -name '*.o') >libtcg.files
+			-a -not -name '*.o' \
+			-a -not -name '*.bc') >libtcg.files
 		(echo '$(QEMU_BUILD)' && \
 			echo '$(QEMU_BUILD)/$(TARGET)-softmmu' && \
 			echo 'include' && \
