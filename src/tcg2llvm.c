@@ -40,7 +40,6 @@ void llvm_init(struct llvm *llvm, const char *module_id)
     llvm->memory = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), RAM_SIZE), "memory");
     llvm->cpu = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPU)), "cpu");
     llvm->cpu_env = LLVMBuildGEP(llvm->builder, llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets), "env");
-    llvm->main = LLVMAddFunction(llvm->module, "main", LLVMFunctionType(LLVMVoidType(), NULL, 0, false));
     llvm->builder = LLVMCreateBuilder();
     memset(&llvm->labels, 0, sizeof(llvm->labels));
     memset(&llvm->locals, 0, sizeof(llvm->locals));
@@ -48,15 +47,7 @@ void llvm_init(struct llvm *llvm, const char *module_id)
 
 #define easy_snprintf(str, format, ...) str[snprintf(str, sizeof(str) - 1, format, __VA_ARGS__)] = 0
 
-static LLVMBasicBlockRef llvm_bb_for_pc(struct llvm *llvm, uint64_t pc)
-{
-    char bb_name[32];
-
-    easy_snprintf(bb_name, ".L.%"PRIx64, pc);
-    return LLVMAppendBasicBlock(llvm->main, bb_name);
-}
-
-static LLVMBasicBlockRef llvm_bb_for_label(struct llvm *llvm, uint64_t pc, struct TCGLabel *label)
+static LLVMBasicBlockRef llvm_bb_for_label(struct llvm *llvm, LLVMValueRef llvm_function, struct TCGLabel *label)
 {
     if (label->id >= MAX_LABELS) {
         fprintf(stderr, "Label id (%d) > MAX_LABELS (%d)\n", (int)label->id, MAX_LABELS);
@@ -65,15 +56,15 @@ static LLVMBasicBlockRef llvm_bb_for_label(struct llvm *llvm, uint64_t pc, struc
     if (!llvm->labels[label->id]) {
         char bb_name[32];
 
-        easy_snprintf(bb_name, ".L.%"PRIx64".%d", pc, (int)label->id);
-        llvm->labels[label->id] = LLVMAppendBasicBlock(llvm->main, bb_name);
+        easy_snprintf(bb_name, ".L%d", (int)label->id);
+        llvm->labels[label->id] = LLVMAppendBasicBlock(llvm_function, bb_name);
     }
     return llvm->labels[label->id];
 }
 
-static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, uint64_t pc, TCGArg var);
+static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var);
 
-static LLVMValueRef llvm_global_var(struct llvm *llvm, struct TCGContext *s, uint64_t pc, TCGTemp *temp)
+static LLVMValueRef llvm_global_var(struct llvm *llvm, struct TCGContext *s, TCGTemp *temp)
 {
     LLVMValueRef llvm_base_ptr;
     LLVMValueRef llvm_offsets[1];
@@ -83,15 +74,14 @@ static LLVMValueRef llvm_global_var(struct llvm *llvm, struct TCGContext *s, uin
         fprintf(stderr, "Unsupported temp: %s\n", temp->name);
         abort();
     }
-    llvm_base_ptr = llvm_var(llvm, s, pc, temp_arg(temp->mem_base));
+    llvm_base_ptr = llvm_var(llvm, s, temp_arg(temp->mem_base));
     llvm_offsets[0] = LLVMConstInt(LLVMInt32Type(), temp->mem_offset, true);
     llvm_raw_ptr = LLVMBuildGEP(llvm->builder, llvm_base_ptr, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
     return LLVMBuildBitCast(llvm->builder, llvm_raw_ptr, LLVMPointerType(llvm_type(temp->type), 0), temp->name);
 }
 
-static LLVMValueRef llvm_local_var(struct llvm *llvm, struct TCGContext *s, uint64_t pc, TCGTemp *temp)
+static LLVMValueRef llvm_local_var(struct llvm *llvm, struct TCGContext *s, TCGTemp *temp)
 {
-    const char *prefix = temp->temp_local ? "loc" : "tmp";
     size_t idx = temp_idx(temp) - s->nb_globals;
 
     if (idx >= MAX_LOCALS) {
@@ -99,15 +89,16 @@ static LLVMValueRef llvm_local_var(struct llvm *llvm, struct TCGContext *s, uint
         abort();
     }
     if (!llvm->locals[idx]) {
+        const char *prefix = temp->temp_local ? "loc" : "tmp";
         char name[32];
 
-        easy_snprintf(name, ".T.%"PRIx64".%s%d", pc, prefix, (int)idx);
+        easy_snprintf(name, "%s%d", prefix, (int)idx);
         llvm->locals[idx] = LLVMBuildAlloca(llvm->builder, llvm_type(temp->type), name);
     }
     return llvm->locals[idx];
 }
 
-static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, uint64_t pc, TCGArg var)
+static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var)
 {
     TCGTemp *temp = arg_temp(var);
 
@@ -115,14 +106,14 @@ static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, uint64_t p
         return llvm->cpu_env;
 
     if (temp->temp_global)
-        return llvm_global_var(llvm, s, pc, temp);
+        return llvm_global_var(llvm, s, temp);
     else
-        return llvm_local_var(llvm, s, pc, temp);
+        return llvm_local_var(llvm, s, temp);
 }
 
-static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, uint64_t pc, TCGArg base, TCGArg offset)
+static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TCGArg base, TCGArg offset)
 {
-    LLVMValueRef llvm_base = llvm_var(llvm, s, pc, base);
+    LLVMValueRef llvm_base = llvm_var(llvm, s, base);
     LLVMValueRef llvm_offsets[] = {
         LLVMConstInt(LLVMInt32Type(), (int32_t)offset, true),
     };
@@ -132,10 +123,14 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, ui
 
 void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
 {
+    char name[32];
+    LLVMValueRef llvm_function;
     LLVMBasicBlockRef llvm_bb;
     struct TCGOp *op;
 
-    llvm_bb = llvm_bb_for_pc(llvm, pc);
+    easy_snprintf(name, "i_%"PRIx64, pc);
+    llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMInt64Type(), NULL, 0, false));
+    llvm_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
     LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
 
     QTAILQ_FOREACH (op, &s->ops, link) {
@@ -144,7 +139,7 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         switch (op->opc) {
         case INDEX_op_movi_i32:
         case INDEX_op_movi_i64: {
-            LLVMValueRef t0 = llvm_var(llvm, s, pc, op->args[0]);
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
             LLVMTypeRef type = op->opc == INDEX_op_movi_i32 ? LLVMInt32Type() : LLVMInt64Type();
             LLVMValueRef t1 = LLVMConstInt(type, (uint32_t)op->args[1], false);
 
@@ -152,8 +147,8 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             break;
         }
         case INDEX_op_ld_i32: {
-            LLVMValueRef t0 = llvm_var(llvm, s, pc, op->args[0]);
-            LLVMValueRef t1 = llvm_base_offset(llvm, s, pc, op->args[1], op->args[2]);
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2]);
             LLVMValueRef t1p = LLVMBuildBitCast(llvm->builder, t1, LLVMPointerType(LLVMInt32Type(), 0), llvm_unnamed);
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1p, llvm_unnamed);
 
@@ -161,12 +156,12 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             break;
         }
         case INDEX_op_brcond_i32: {
-            LLVMValueRef t0 = llvm_var(llvm, s, pc, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, pc, op->args[1]);
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
             TCGCond cond = (TCGCond)op->args[2];
             TCGLabel *label = arg_label(op->args[3]);
-            LLVMBasicBlockRef llvm_then_bb = llvm_bb_for_label(llvm, pc, label);
-            LLVMBasicBlockRef llvm_else_bb = LLVMAppendBasicBlock(llvm->main, llvm_unnamed);
+            LLVMBasicBlockRef llvm_then_bb = llvm_bb_for_label(llvm, llvm_function, label);
+            LLVMBasicBlockRef llvm_else_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
             LLVMValueRef llvm_cond;
 
             switch (cond) {
@@ -184,9 +179,10 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         }
         case INDEX_op_set_label: {
             TCGLabel *label = arg_label(op->args[0]);
-            LLVMBasicBlockRef llvm_next_bb = llvm_bb_for_label(llvm, pc, label);
+            LLVMBasicBlockRef llvm_next_bb = llvm_bb_for_label(llvm, llvm_function, label);
 
-            LLVMBuildBr(llvm->builder, llvm_next_bb);
+            if (llvm_bb)
+                LLVMBuildBr(llvm->builder, llvm_next_bb);
             llvm_bb = llvm_next_bb;
             LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
             break;
@@ -208,16 +204,19 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             }
             break;
         }
-        case INDEX_op_exit_tb:
-            // See tcg_qemu_tb_exec() for possible return codes.
-            // TODO: LLVMBuildBr()
+        case INDEX_op_exit_tb: {
+            int64_t val = (int64_t)op->args[0];
+
+            LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), val, false));
+            llvm_bb = NULL;
             break;
+        }
         case INDEX_op_add_i32:
         case INDEX_op_add_i64: {
-            LLVMValueRef t0 = llvm_var(llvm, s, pc, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, pc, op->args[1]);
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
-            LLVMValueRef t2 = llvm_var(llvm, s, pc, op->args[1]);
+            LLVMValueRef t2 = llvm_var(llvm, s, op->args[1]);
             LLVMValueRef t2v = LLVMBuildLoad(llvm->builder, t2, llvm_unnamed);
             LLVMValueRef sum = LLVMBuildAdd(llvm->builder, t1v, t2v, llvm_unnamed);
 
@@ -226,8 +225,8 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         }
         case INDEX_op_mov_i32:
         case INDEX_op_mov_i64: {
-            LLVMValueRef t0 = llvm_var(llvm, s, pc, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, pc, op->args[1]);
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
 
             LLVMBuildStore(llvm->builder, t1v, t0);

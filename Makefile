@@ -27,10 +27,7 @@ CFLAGS=\
 	-Werror
 LDFLAGS=\
 	-L$(LLVM_BUILD)/lib \
-	-lLLVMCore \
-	-lLLVMSupport \
-	-lLLVMDemangle \
-	-lLLVMBinaryFormat \
+	$(shell $(LLVM_BUILD)/bin/llvm-config --libs analysis core) \
 	$$(pkg-config --libs $(PKGS)) \
 	-framework IOKit
 
@@ -95,11 +92,11 @@ build-qemu:
 .PHONY: configure-llvm
 configure-llvm:
 		mkdir -p $(LLVM_BUILD)
-		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off ../$(LLVM)
+		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off -DLLVM_TARGETS_TO_BUILD= ../$(LLVM)
 
 .PHONY: build-llvm
 build-llvm:
-		cd $(LLVM_BUILD) && $(MAKE) LLVMCore LLVMSupport LLVMDemangle LLVMBinaryFormat
+		cd $(LLVM_BUILD) && $(MAKE)
 
 .PHONY: project
 project:

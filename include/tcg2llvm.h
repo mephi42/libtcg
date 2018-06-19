@@ -15,7 +15,6 @@ struct llvm {
     LLVMValueRef memory;
     LLVMValueRef cpu;
     LLVMValueRef cpu_env;
-    LLVMValueRef main;
     LLVMBuilderRef builder;
     LLVMBasicBlockRef labels[MAX_LABELS];
     LLVMValueRef locals[MAX_LOCALS];

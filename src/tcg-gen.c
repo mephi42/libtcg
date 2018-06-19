@@ -4,6 +4,7 @@
 #include "qemu/osdep.h"
 
 #include "libtcg.h"
+#include "llvm-c/Analysis.h"
 #include "llvm-c/Core.h"
 #include "tcg/tcg.h"
 #include "tcg2llvm.h"
@@ -38,4 +39,6 @@ int main(int argc, char ** argv)
     llvm_init(&llvm, argv[1]);
     llvm_convert_tb(&llvm, s, s390_cpu->env.psw.addr);
     LLVMDumpModule(llvm.module);
+    if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
+        abort();
 }
