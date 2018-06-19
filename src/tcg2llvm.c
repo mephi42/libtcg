@@ -10,7 +10,9 @@
 
 #include "exec/helper-head.h"
 #include "exec/helper-proto.h"
+#include "hw/loader.h"
 #include "libtcg.h"
+#include "llvm-core-extras.h"
 #include "tcg/tcg.h"
 
 static const char llvm_unnamed[] = "";
@@ -58,20 +60,35 @@ static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
     }
 }
 
-void llvm_init(struct llvm *llvm, const char *module_id)
+static void llvm_init_main(struct llvm *llvm)
 {
+    LLVMValueRef main = LLVMAddFunction(llvm->module, "main", LLVMFunctionType(LLVMInt32Type(), NULL, 0, false));
+    LLVMBasicBlockRef bb = LLVMAppendBasicBlock(main, llvm_unnamed);
+
+    LLVMPositionBuilderAtEnd(llvm->builder, bb);
+    LLVMBuildMemCpy(llvm->builder, llvm->memory, 1, llvm->memory_init, 1, llvm->image_size);
+    LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt32Type(), 0, false));
+}
+
+void llvm_init(struct llvm *llvm, const char *path)
+{
+    LLVMTypeRef memory_type = LLVMArrayType(LLVMInt8Type(), RAM_SIZE);
     LLVMValueRef llvm_env_offsets[2] = {
         LLVMConstInt(LLVMInt32Type(), 0, true),
         LLVMConstInt(LLVMInt32Type(), ENV_OFFSET, true),
     };
 
-    llvm->module = LLVMModuleCreateWithName(module_id);
-    llvm->memory = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), RAM_SIZE), "memory");
+    llvm->module = LLVMModuleCreateWithName(path);
+    llvm->memory = LLVMAddGlobal(llvm->module, memory_type, "memory");
+    LLVMSetInitializer(llvm->memory, LLVMConstNull(memory_type));
     llvm->cpu = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPU)), "cpu");
     llvm->cpu_env = LLVMBuildGEP(llvm->builder, llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets), "env");
     llvm->builder = LLVMCreateBuilder();
     memset(&llvm->labels, 0, sizeof(llvm->labels));
     memset(&llvm->locals, 0, sizeof(llvm->locals));
+    llvm->image_size = get_image_size(path);
+    llvm->memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
+    llvm_init_main(llvm);
 }
 
 #define easy_snprintf(str, format, ...) str[snprintf(str, sizeof(str) - 1, format, __VA_ARGS__)] = 0
@@ -260,4 +277,14 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             abort();
         }
     }
+}
+
+void llvm_add_data(struct llvm *llvm, struct CPUState *cpu)
+{
+    struct S390CPU *s390_cpu = S390_CPU(cpu);
+    hwaddr len = llvm->image_size;
+    void *image = cpu_physical_memory_map(0, &len, false);
+
+    LLVMSetInitializer(llvm->cpu, LLVMConstString((const char *)s390_cpu, sizeof(*s390_cpu), true));
+    LLVMSetInitializer(llvm->memory_init, LLVMConstString((const char *)image, len, true));
 }

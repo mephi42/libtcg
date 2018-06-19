@@ -40,6 +40,7 @@ int main(int argc, char **argv)
     llvm_init(&llvm, argv[1]);
     llvm_convert_tb(&llvm, s, s390_cpu->env.psw.addr);
     LLVMDumpModule(llvm.module);
+    llvm_add_data(&llvm, cpu);
     if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
         abort();
     LLVMWriteBitcodeToFile(llvm.module, argv[2]);

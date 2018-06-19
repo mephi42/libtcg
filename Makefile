@@ -26,6 +26,7 @@ CFLAGS=\
 	-Wall \
 	-Wextra \
 	-Werror
+CXXFLAGS=$(CFLAGS) -std=c++11
 LDFLAGS=\
 	$(shell $(LLVM_BUILD)/bin/llvm-config --ldflags --libs $(LLVM_COMPONENTS)) \
 	$(shell pkg-config --libs $(PKGS)) \
@@ -40,6 +41,7 @@ clean:
 
 TCG_GEN_OBJS=\
 	$(BUILD)/libtcg.o \
+	$(BUILD)/llvm-core-extras.o \
 	$(BUILD)/tcg-gen.o \
 	$(BUILD)/tcg2llvm.o \
 	$(shell find $(QEMU_BUILD) \
@@ -60,6 +62,10 @@ TCG_GEN_OBJS=\
 $(BUILD)/%.o: $(SRC)/%.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
+		mkdir -p $(shell dirname $@)
+		$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $(TCG_GEN))

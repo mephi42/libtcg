@@ -5,6 +5,7 @@
 
 #include "llvm-c/Core.h"
 
+struct CPUState;
 struct TCGContext;
 
 #define MAX_LABELS 16
@@ -18,9 +19,12 @@ struct llvm {
     LLVMBuilderRef builder;
     LLVMBasicBlockRef labels[MAX_LABELS];
     LLVMValueRef locals[MAX_LOCALS];
+    int image_size;
+    LLVMValueRef memory_init;
 };
 
-void llvm_init(struct llvm *llvm, const char *module_id);
+void llvm_init(struct llvm *llvm, const char *path);
 void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc);
+void llvm_add_data(struct llvm *llvm, struct CPUState *cpu);
 
 #endif
