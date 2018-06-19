@@ -8,6 +8,7 @@ LLVM=llvm
 LLVM_BUILD=llvm-build
 SRC=src
 BUILD=build
+OBJCOPY?=gobjcopy
 CFLAGS=\
 	-isystem $(QEMU_BUILD) \
 	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
@@ -52,6 +53,7 @@ TCG_GEN_OBJS=\
 		-a -not -path "$(QEMU_BUILD)/qemu-nbd.o" \
 		-a -not -path "$(QEMU_BUILD)/qga/*.o" \
 		-a -not -path "$(QEMU_BUILD)/stubs/*.o" \
+		-a -not -path "$(QEMU_BUILD)/$(TARGET)-softmmu/tcg/tcg.o" \
 		-a -not -path "$(QEMU_BUILD)/vl.o") \
 	$(QEMU_BUILD)/stubs/qmp_memory_device.o \
 	$(QEMU_BUILD)/stubs/target-get-monitor-def.o \
@@ -115,7 +117,8 @@ configure-qemu:
 .PHONY: build-qemu
 build-qemu:
 		cd $(QEMU_BUILD) && $(MAKE)
-		gobjcopy --strip-symbol _main $(QEMU_BUILD)/vl.o $(QEMU_BUILD)/vl_nomain.o
+		$(OBJCOPY) --strip-symbol _main $(QEMU_BUILD)/vl.o $(QEMU_BUILD)/vl_nomain.o
+		$(OBJCOPY) --globalize-symbol _helper_table $(QEMU_BUILD)/$(TARGET)-softmmu/tcg/tcg.o $(QEMU_BUILD)/$(TARGET)-softmmu/tcg/tcg_with_helper_table.o
 
 .PHONY: configure-llvm
 configure-llvm:

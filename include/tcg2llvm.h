@@ -10,6 +10,7 @@ struct TCGContext;
 
 #define MAX_LABELS 16
 #define MAX_LOCALS 16
+#define MAX_ARGS 16
 
 struct llvm {
     LLVMModuleRef module;

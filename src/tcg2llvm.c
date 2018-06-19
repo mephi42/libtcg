@@ -8,8 +8,6 @@
 #include "qemu/osdep.h"
 #include "target/s390x/cpu.h"
 
-#include "exec/helper-head.h"
-#include "exec/helper-proto.h"
 #include "hw/loader.h"
 #include "libtcg.h"
 #include "llvm-core-extras.h"
@@ -165,6 +163,8 @@ static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var
 
 static LLVMValueRef llvm_var_value(struct llvm *llvm, struct TCGContext *s, TCGArg var)
 {
+    if (arg_temp(var) == tcgv_i32_temp((TCGv_i32)cpu_env))
+        return llvm->cpu_env;
     return LLVMBuildLoad(llvm->builder, llvm_var(llvm, s, var), llvm_unnamed);
 }
 
@@ -218,6 +218,17 @@ static LLVMValueRef llvm_memop_bswap(struct llvm *llvm, LLVMValueRef v, TCGMemOp
 {
     return (memop & MO_BSWAP) ? LLVMBuildBSwap(llvm->builder, v) : v;
 }
+
+// tcg.c:656
+typedef struct TCGHelperInfo {
+    void *func;
+    const char *name;
+    unsigned flags;
+    unsigned sizemask;
+} TCGHelperInfo;
+
+// tcg.c:668
+extern GHashTable *helper_table;
 
 LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
 {
@@ -321,16 +332,54 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             break;
         }
         case INDEX_op_call: {
-            void *ptr = (void *)op->args[TCGOP_CALLO(op) + TCGOP_CALLI(op)];
+            int n_out = TCGOP_CALLO(op);
+            int n_in = TCGOP_CALLI(op);
+            void *func = (void *)op->args[n_out + n_in];
+            TCGHelperInfo *helper = NULL;
+            char name[32];
+            LLVMValueRef llvm_helper;
+            LLVMValueRef out;
+            LLVMValueRef args[MAX_ARGS];
+            int i;
+            LLVMValueRef ret;
 
-            if (ptr == HELPER(lctlg)) {
-                // Ignore - assume control registers are irrelevant.
-            } else if (ptr == HELPER(exception)) {
-                LLVMBuildTrap(llvm->builder);
-            } else {
-                fprintf(stderr, "Unsupported ptr: %p\n", ptr);
+            if (helper_table)
+                helper = g_hash_table_lookup(helper_table, (gpointer)func);
+            if (!helper) {
+                fprintf(stderr, "Unsupported func: %p\n", func);
                 abort();
             }
+            switch (n_out) {
+            case 0:
+                out = NULL;
+                break;
+            case 1:
+                out = llvm_var(llvm, s, op->args[0]);
+                break;
+            default:
+                fprintf(stderr, "Unsupported callo: %d\n", n_out);
+                abort();
+            }
+            if (n_in > MAX_ARGS) {
+                fprintf(stderr, "calli (%d) > MAX_ARGS (%d)\n", n_in, MAX_ARGS);
+                abort();
+            }
+            for (i = 0; i < n_in; ++i)
+                args[i] = llvm_var_value(llvm, s, op->args[n_out + i]);
+            easy_snprintf(name, "helper_%s", helper->name);
+            llvm_helper = LLVMGetNamedFunction(llvm->module, name);
+            if (!llvm_helper) {
+                LLVMTypeRef return_type = out ? LLVMGetElementType(LLVMTypeOf(out)) : LLVMVoidType();
+                LLVMTypeRef arg_types[MAX_ARGS];
+
+                for (i = 0; i < n_in; ++i)
+                    arg_types[i] = LLVMTypeOf(args[i]);
+                llvm_helper = LLVMAddFunction(llvm->module, name, LLVMFunctionType(return_type, arg_types, n_in, false));
+            }
+            ret = LLVMBuildCall(llvm->builder, llvm_helper, args, n_in, llvm_unnamed);
+            if (out)
+                LLVMBuildStore(llvm->builder, ret, out);
+
             break;
         }
         case INDEX_op_exit_tb: {
@@ -402,10 +451,8 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             llvm_cast_op(llvm, s, op->args[0], &LLVMBuildZExt, op->args[1]);
             break;
         case INDEX_op_goto_tb:
-            // Ignore the index parameter, since in stand-alone mode
+            // Ignore, since in stand-alone mode
             // translation block linking should not happen.
-            LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), 0, false));
-            llvm_bb = NULL;
             break;
         case INDEX_op_deposit_i32:
         case INDEX_op_deposit_i64: {
