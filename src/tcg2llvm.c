@@ -389,6 +389,12 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_ext32u_i64:
             llvm_cast_op(llvm, s, op->args[0], &LLVMBuildZExt, op->args[1]);
             break;
+        case INDEX_op_goto_tb:
+            // Ignore the index parameter, since in stand-alone mode
+            // translation block linking should not happen.
+            LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), 0, false));
+            llvm_bb = NULL;
+            break;
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);
             return NULL;

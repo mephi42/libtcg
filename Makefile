@@ -75,6 +75,8 @@ $(TCG_GEN): $(TCG_GEN_OBJS)
 configure-qemu:
 		mkdir -p $(QEMU_BUILD)
 		cd $(QEMU_BUILD) && ../$(QEMU)/configure \
+			--cpu=unknown \
+			--enable-tcg-interpreter \
 			--target-list=$(TARGET)-softmmu \
 			--disable-fdt \
 			--audio-drv-list= \
@@ -112,6 +114,7 @@ project:
 			-a -not -path '*/alpha/*' \
 			-a -not -path '*/arm/*' \
 			-a -not -path '*/cris/*' \
+			-a -not -path '*/i386/*' \
 			-a -not -path '*/hppa/*' \
 			-a -not -path '*/lm32/*' \
 			-a -not -path '*/m68k/*' \

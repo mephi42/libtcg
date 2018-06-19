@@ -1,2 +1,2 @@
-HOST=i386
+HOST=tci
 TARGET=s390x
