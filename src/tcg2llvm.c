@@ -185,6 +185,20 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TC
     return LLVMBuildGEP(llvm->builder, llvm_base, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
 }
 
+typedef LLVMValueRef (*llvm_op2_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
+
+static LLVMValueRef llvm_op2(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_op2_f f, TCGArg op2)
+{
+    LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
+    LLVMValueRef llvm_op1 = llvm_var(llvm, s, op1);
+    LLVMValueRef llvm_op1v = LLVMBuildLoad(llvm->builder, llvm_op1, llvm_unnamed);
+    LLVMValueRef llvm_op2 = llvm_var(llvm, s, op2);
+    LLVMValueRef llvm_op2v = LLVMBuildLoad(llvm->builder, llvm_op2, llvm_unnamed);
+    LLVMValueRef result = f(llvm->builder, llvm_op1v, llvm_op2v, llvm_unnamed);
+
+    return LLVMBuildStore(llvm->builder, result, llvm_dst);
+}
+
 LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
 {
     char name[32];
@@ -304,17 +318,21 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             break;
         }
         case INDEX_op_add_i32:
-        case INDEX_op_add_i64: {
-            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
-            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
-            LLVMValueRef t2 = llvm_var(llvm, s, op->args[1]);
-            LLVMValueRef t2v = LLVMBuildLoad(llvm->builder, t2, llvm_unnamed);
-            LLVMValueRef sum = LLVMBuildAdd(llvm->builder, t1v, t2v, llvm_unnamed);
-
-            LLVMBuildStore(llvm->builder, sum, t0);
+        case INDEX_op_add_i64:
+            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildAdd, op->args[2]);
             break;
-        }
+        case INDEX_op_shl_i32:
+        case INDEX_op_shl_i64:
+            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildShl, op->args[2]);
+            break;
+        case INDEX_op_and_i32:
+        case INDEX_op_and_i64:
+            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildAnd, op->args[2]);
+            break;
+        case INDEX_op_or_i32:
+        case INDEX_op_or_i64:
+            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildOr, op->args[2]);
+            break;
         case INDEX_op_mov_i32:
         case INDEX_op_mov_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
