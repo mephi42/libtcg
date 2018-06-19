@@ -175,28 +175,40 @@ static LLVMValueRef llvm_var(struct llvm *llvm, struct TCGContext *s, TCGArg var
         return llvm_local_var(llvm, s, temp);
 }
 
-static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TCGArg base, TCGArg offset)
+static LLVMValueRef llvm_var_value(struct llvm *llvm, struct TCGContext *s, TCGArg var)
 {
-    LLVMValueRef llvm_base = llvm_var(llvm, s, base);
-    LLVMValueRef llvm_offsets[] = {
-        LLVMConstInt(LLVMInt32Type(), (int32_t)offset, true),
-    };
+    return LLVMBuildLoad(llvm->builder, llvm_var(llvm, s, var), llvm_unnamed);
+}
 
-    return LLVMBuildGEP(llvm->builder, llvm_base, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TCGArg base, TCGArg offset, LLVMTypeRef type)
+{
+    LLVMValueRef llvm_base = llvm_var_value(llvm, s, base);
+    LLVMValueRef llvm_offset = LLVMConstInt(LLVMTypeOf(llvm_base), (int32_t)offset, false);
+    LLVMValueRef llvm_addr = LLVMBuildAdd(llvm->builder, llvm_base, llvm_offset, llvm_unnamed);
+    LLVMValueRef llvm_offsets[] = {
+        LLVMConstInt(LLVMInt32Type(), 0, false),
+        llvm_addr,
+    };
+    LLVMValueRef u8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+
+    return LLVMBuildBitCast(llvm->builder, u8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
 }
 
 typedef LLVMValueRef (*llvm_op2_f)(LLVMBuilderRef, LLVMValueRef, LLVMValueRef, const char *);
 
-static LLVMValueRef llvm_op2(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_op2_f f, TCGArg op2)
+static LLVMValueRef llvm_bin_op(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg op1, llvm_op2_f f, TCGArg op2)
 {
     LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
-    LLVMValueRef llvm_op1 = llvm_var(llvm, s, op1);
-    LLVMValueRef llvm_op1v = LLVMBuildLoad(llvm->builder, llvm_op1, llvm_unnamed);
-    LLVMValueRef llvm_op2 = llvm_var(llvm, s, op2);
-    LLVMValueRef llvm_op2v = LLVMBuildLoad(llvm->builder, llvm_op2, llvm_unnamed);
-    LLVMValueRef result = f(llvm->builder, llvm_op1v, llvm_op2v, llvm_unnamed);
+    LLVMValueRef llvm_op1 = llvm_var_value(llvm, s, op1);
+    LLVMValueRef llvm_op2 = llvm_var_value(llvm, s, op2);
+    LLVMValueRef result = f(llvm->builder, llvm_op1, llvm_op2, llvm_unnamed);
 
     return LLVMBuildStore(llvm->builder, result, llvm_dst);
+}
+
+static LLVMValueRef llvm_memop_bswap(struct llvm *llvm, LLVMValueRef v, TCGMemOp memop)
+{
+    return (memop & MO_BSWAP) ? LLVMBuildBSwap(llvm->builder, v) : v;
 }
 
 LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
@@ -226,32 +238,27 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         }
         case INDEX_op_ld_i32: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2]);
-            LLVMValueRef t1p = LLVMBuildBitCast(llvm->builder, t1, LLVMPointerType(LLVMInt32Type(), 0), llvm_unnamed);
-            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1p, llvm_unnamed);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMInt32Type());
+            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
 
             LLVMBuildStore(llvm->builder, t1v, t0);
             break;
         }
         case INDEX_op_st_i32: {
-            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t0v = LLVMBuildLoad(llvm->builder, t0, llvm_unnamed);
-            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2]);
-            LLVMValueRef t1p = LLVMBuildBitCast(llvm->builder, t1, LLVMPointerType(LLVMInt32Type(), 0), llvm_unnamed);
+            LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMInt32Type());
 
-            LLVMBuildStore(llvm->builder, t0v, t1p);
+            LLVMBuildStore(llvm->builder, t0, t1);
             break;
         }
         case INDEX_op_brcond_i32: {
-            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t0v = LLVMBuildLoad(llvm->builder, t0, llvm_unnamed);
-            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
-            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
+            LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
             TCGCond cond = (TCGCond)op->args[2];
             TCGLabel *label = arg_label(op->args[3]);
             LLVMBasicBlockRef llvm_then_bb = llvm_bb_for_label(llvm, llvm_function, label);
             LLVMBasicBlockRef llvm_else_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
-            LLVMValueRef llvm_cond = LLVMBuildICmp(llvm->builder, llvm_int_predicate(cond), t0v, t1v, llvm_unnamed);
+            LLVMValueRef llvm_cond = LLVMBuildICmp(llvm->builder, llvm_int_predicate(cond), t0, t1, llvm_unnamed);
 
             LLVMBuildCondBr(llvm->builder, llvm_cond, llvm_then_bb, llvm_else_bb);
             llvm_bb = llvm_else_bb;
@@ -273,28 +280,33 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             break;
         case INDEX_op_qemu_ld_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
-            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
             TCGMemOpIdx flags = (TCGMemOpIdx)op->args[2];
             TCGMemOp memop = get_memop(flags);
-            LLVMValueRef llvm_offsets[] = {
-                LLVMConstInt(LLVMInt32Type(), 0, false),
-                t1v,
-            };
-            LLVMValueRef u8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
             LLVMTypeRef load_type = llvm_memop_type(memop);
-            LLVMValueRef signed_ptr = LLVMBuildBitCast(llvm->builder, u8_ptr, LLVMPointerType(load_type, 0), llvm_unnamed);
-            LLVMValueRef signed_val = LLVMBuildLoad(llvm->builder, signed_ptr, llvm_unnamed);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], 0, load_type);
+            LLVMValueRef signed_val = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
             LLVMValueRef endian_val = (load_type == LLVMInt64Type()) ?
                         signed_val :
                         ((memop & MO_SIGN) ?
                              LLVMBuildSExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed) :
                              LLVMBuildZExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed));
-            LLVMValueRef val = (memop & MO_BSWAP) ?
-                    LLVMBuildBSwap(llvm->builder, endian_val) :
-                    endian_val;
+            LLVMValueRef val = llvm_memop_bswap(llvm, endian_val, memop);
 
             LLVMBuildStore(llvm->builder, val, t0);
+            break;
+        }
+        case INDEX_op_qemu_st_i64: {
+            LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
+            TCGMemOpIdx flags = (TCGMemOpIdx)op->args[2];
+            TCGMemOp memop = get_memop(flags);
+            LLVMTypeRef store_type = llvm_memop_type(memop);
+            LLVMValueRef endian_val = (store_type == LLVMInt64Type()) ?
+                        t0 :
+                        LLVMBuildTrunc(llvm->builder, t0, store_type, llvm_unnamed);
+            LLVMValueRef val = llvm_memop_bswap(llvm, endian_val, memop);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], 0, store_type);
+
+            LLVMBuildStore(llvm->builder, val, t1);
             break;
         }
         case INDEX_op_call: {
@@ -313,33 +325,37 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_exit_tb: {
             int64_t val = (int64_t)op->args[0];
 
+            // TODO: handle pointer part of val
             LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), val, false));
             llvm_bb = NULL;
             break;
         }
         case INDEX_op_add_i32:
         case INDEX_op_add_i64:
-            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildAdd, op->args[2]);
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildAdd, op->args[2]);
+            break;
+        case INDEX_op_sub_i32:
+        case INDEX_op_sub_i64:
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildSub, op->args[2]);
             break;
         case INDEX_op_shl_i32:
         case INDEX_op_shl_i64:
-            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildShl, op->args[2]);
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildShl, op->args[2]);
             break;
         case INDEX_op_and_i32:
         case INDEX_op_and_i64:
-            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildAnd, op->args[2]);
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildAnd, op->args[2]);
             break;
         case INDEX_op_or_i32:
         case INDEX_op_or_i64:
-            llvm_op2(llvm, s, op->args[0], op->args[1], &LLVMBuildOr, op->args[2]);
+            llvm_bin_op(llvm, s, op->args[0], op->args[1], &LLVMBuildOr, op->args[2]);
             break;
         case INDEX_op_mov_i32:
         case INDEX_op_mov_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
-            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
+            LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
 
-            LLVMBuildStore(llvm->builder, t1v, t0);
+            LLVMBuildStore(llvm->builder, t1, t0);
             break;
         }
         default:
