@@ -29,6 +29,35 @@ static LLVMTypeRef llvm_type(TCGType type)
     }
 }
 
+static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
+{
+    switch (cond) {
+    case TCG_COND_EQ:
+        return LLVMIntEQ;
+    case TCG_COND_NE:
+        return LLVMIntNE;
+    case TCG_COND_LT:
+        return LLVMIntSLT;
+    case TCG_COND_GE:
+        return LLVMIntSGE;
+    case TCG_COND_LE:
+        return LLVMIntSLE;
+    case TCG_COND_GT:
+        return LLVMIntSGT;
+    case TCG_COND_LTU:
+        return LLVMIntULT;
+    case TCG_COND_GEU:
+        return LLVMIntUGE;
+    case TCG_COND_LEU:
+        return LLVMIntULE;
+    case TCG_COND_GTU:
+        return LLVMIntUGT;
+    default:
+        fprintf(stderr, "Unsupported cond: %d\n", (int)cond);
+        abort();
+    }
+}
+
 void llvm_init(struct llvm *llvm, const char *module_id)
 {
     LLVMValueRef llvm_env_offsets[2] = {
@@ -157,21 +186,15 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         }
         case INDEX_op_brcond_i32: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t0v = LLVMBuildLoad(llvm->builder, t0, llvm_unnamed);
             LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
+            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
             TCGCond cond = (TCGCond)op->args[2];
             TCGLabel *label = arg_label(op->args[3]);
             LLVMBasicBlockRef llvm_then_bb = llvm_bb_for_label(llvm, llvm_function, label);
             LLVMBasicBlockRef llvm_else_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
-            LLVMValueRef llvm_cond;
+            LLVMValueRef llvm_cond = LLVMBuildICmp(llvm->builder, llvm_int_predicate(cond), t0v, t1v, llvm_unnamed);
 
-            switch (cond) {
-            case TCG_COND_LT:
-                llvm_cond = LLVMBuildICmp(llvm->builder, LLVMIntSLT, t0, t1, llvm_unnamed);
-                break;
-            default:
-                fprintf(stderr, "Unsupported cond: %d\n", (int)cond);
-                abort();
-            }
             LLVMBuildCondBr(llvm->builder, llvm_cond, llvm_then_bb, llvm_else_bb);
             llvm_bb = llvm_else_bb;
             LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);

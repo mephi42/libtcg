@@ -1,6 +1,7 @@
 include env
 
 PKGS=glib-2.0 pixman-1 zlib
+LLVM_COMPONENTS=analysis bitwriter core
 QEMU=qemu
 QEMU_BUILD=qemu-build
 LLVM=llvm
@@ -19,16 +20,15 @@ CFLAGS=\
 	-isystem $(QEMU)/tcg/$(HOST) \
 	-isystem $(LLVM)/include \
 	-isystem $(LLVM_BUILD)/include \
-	$$(pkg-config --cflags $(PKGS)) \
+	$(shell pkg-config --cflags $(PKGS)) \
 	-DNEED_CPU_H \
 	-g \
 	-Wall \
 	-Wextra \
 	-Werror
 LDFLAGS=\
-	-L$(LLVM_BUILD)/lib \
-	$(shell $(LLVM_BUILD)/bin/llvm-config --libs analysis core) \
-	$$(pkg-config --libs $(PKGS)) \
+	$(shell $(LLVM_BUILD)/bin/llvm-config --ldflags --libs $(LLVM_COMPONENTS)) \
+	$(shell pkg-config --libs $(PKGS)) \
 	-framework IOKit
 
 TCG_GEN=$(BUILD)/tcg-gen

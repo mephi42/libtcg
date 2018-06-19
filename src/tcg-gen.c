@@ -5,19 +5,20 @@
 
 #include "libtcg.h"
 #include "llvm-c/Analysis.h"
+#include "llvm-c/BitWriter.h"
 #include "llvm-c/Core.h"
 #include "tcg/tcg.h"
 #include "tcg2llvm.h"
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
     struct CPUState *cpu;
     struct TCGContext *s;
     struct S390CPU *s390_cpu;
     struct llvm llvm;
 
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s file\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -41,4 +42,5 @@ int main(int argc, char ** argv)
     LLVMDumpModule(llvm.module);
     if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
         abort();
+    LLVMWriteBitcodeToFile(llvm.module, argv[2]);
 }
