@@ -23,3 +23,12 @@ LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V)
 
     return wrap(unwrap(B)->CreateCall(TheFn, Args));
 }
+
+LLVMValueRef LLVMBuildTrap(LLVMBuilderRef B)
+{
+    BasicBlock *BB = unwrap(B)->GetInsertBlock();
+    Module *M = BB->getParent()->getParent();
+    Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::trap, {});
+
+    return wrap(unwrap(B)->CreateCall(TheFn, {}));
+}

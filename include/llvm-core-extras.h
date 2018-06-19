@@ -15,6 +15,8 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef B, LLVMValueRef Dst,
 
 LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V);
 
+LLVMValueRef LLVMBuildTrap(LLVMBuilderRef B);
+
 #ifdef __cplusplus
 }
 #endif

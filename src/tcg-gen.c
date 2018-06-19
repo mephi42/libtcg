@@ -13,9 +13,8 @@
 int main(int argc, char **argv)
 {
     struct CPUState *cpu;
-    struct TCGContext *s;
-    struct S390CPU *s390_cpu;
     struct llvm llvm;
+    int pc;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
@@ -28,18 +27,27 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    s = libtcg_gen(cpu);
-    if (!s) {
-        fprintf(stderr, "libtcg_gen() failed\n");
-        return EXIT_FAILURE;
+    llvm_init(&llvm, argv[1]);
+
+    for (pc = 0; pc < llvm.image_size; pc += 2) {
+        struct S390CPU *s390_cpu;
+        struct TCGContext *s;
+        LLVMValueRef llvm_function;
+
+        s390_cpu = S390_CPU(cpu);
+        s390_cpu->env.psw.addr = pc;
+        s = libtcg_gen(cpu);
+        if (!s) {
+            fprintf(stderr, "libtcg_gen() failed\n");
+            abort();
+        }
+        tcg_dump_ops(s);
+        llvm_function = llvm_convert_tb(&llvm, s, pc);
+        if (!llvm_function)
+            abort();
+        LLVMDumpValue(llvm_function);
     }
 
-    tcg_dump_ops(s);
-
-    s390_cpu = S390_CPU(cpu);
-    llvm_init(&llvm, argv[1]);
-    llvm_convert_tb(&llvm, s, s390_cpu->env.psw.addr);
-    LLVMDumpModule(llvm.module);
     llvm_add_data(&llvm, cpu);
     if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
         abort();

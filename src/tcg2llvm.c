@@ -185,7 +185,7 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TC
     return LLVMBuildGEP(llvm->builder, llvm_base, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
 }
 
-void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
+LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
 {
     char name[32];
     LLVMValueRef llvm_function;
@@ -217,6 +217,15 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1p, llvm_unnamed);
 
             LLVMBuildStore(llvm->builder, t1v, t0);
+            break;
+        }
+        case INDEX_op_st_i32: {
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t0v = LLVMBuildLoad(llvm->builder, t0, llvm_unnamed);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2]);
+            LLVMValueRef t1p = LLVMBuildBitCast(llvm->builder, t1, LLVMPointerType(LLVMInt32Type(), 0), llvm_unnamed);
+
+            LLVMBuildStore(llvm->builder, t0v, t1p);
             break;
         }
         case INDEX_op_brcond_i32: {
@@ -279,6 +288,8 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
 
             if (ptr == HELPER(lctlg)) {
                 // Ignore - assume control registers are irrelevant.
+            } else if (ptr == HELPER(exception)) {
+                LLVMBuildTrap(llvm->builder);
             } else {
                 fprintf(stderr, "Unsupported ptr: %p\n", ptr);
                 abort();
@@ -315,9 +326,10 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         }
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);
-            abort();
+            return NULL;
         }
     }
+    return llvm_function;
 }
 
 void llvm_add_data(struct llvm *llvm, struct CPUState *cpu)
