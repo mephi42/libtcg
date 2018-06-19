@@ -13,6 +13,8 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef B, LLVMValueRef Dst,
                              unsigned DstAlign, LLVMValueRef Src,
                              unsigned SrcAlign, uint64_t Size);
 
+LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V);
+
 #ifdef __cplusplus
 }
 #endif

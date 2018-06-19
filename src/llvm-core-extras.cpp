@@ -11,3 +11,16 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef B, LLVMValueRef Dst,
     return wrap(unwrap(B)->CreateMemCpy(unwrap(Dst), DstAlign, unwrap(Src),
                                         SrcAlign, Size));
 }
+
+LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V)
+{
+    BasicBlock *BB = unwrap(B)->GetInsertBlock();
+    Module *M = BB->getParent()->getParent();
+    Type *Ty = unwrap(V)->getType();
+    Type *Tys[] = { Ty, Ty };
+    Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::bswap, Tys);
+    Value *Args[] = { unwrap(V) };
+    int NumArgs = sizeof(Args) /sizeof(Args[0]);
+
+    return wrap(unwrap(B)->CreateCall(TheFn, makeArrayRef(Args, NumArgs)));
+}

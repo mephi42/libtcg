@@ -31,6 +31,24 @@ static LLVMTypeRef llvm_type(TCGType type)
     }
 }
 
+static LLVMTypeRef llvm_memop_type(TCGMemOp memop)
+{
+    switch (memop & MO_SIZE)
+    {
+    case MO_8:
+        return LLVMInt8Type();
+    case MO_16:
+        return LLVMInt16Type();
+    case MO_32:
+        return LLVMInt32Type();
+    case MO_64:
+        return LLVMInt64Type();
+    default:
+        fprintf(stderr, "Unsupported memop: 0x%x\n", (int)memop);
+        abort();
+    }
+}
+
 static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
 {
     switch (cond) {
@@ -230,9 +248,31 @@ void llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
         case INDEX_op_insn_start:
             // Ignore.
             break;
-        case INDEX_op_qemu_ld_i64:
-            // TODO
+        case INDEX_op_qemu_ld_i64: {
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var(llvm, s, op->args[1]);
+            LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
+            TCGMemOp flags = (TCGMemOp)op->args[2];
+            LLVMValueRef llvm_offsets[] = {
+                LLVMConstInt(LLVMInt32Type(), 0, false),
+                t1v,
+            };
+            LLVMValueRef u8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+            LLVMTypeRef load_type = llvm_memop_type(flags);
+            LLVMValueRef signed_ptr = LLVMBuildBitCast(llvm->builder, u8_ptr, LLVMPointerType(load_type, 0), llvm_unnamed);
+            LLVMValueRef signed_val = LLVMBuildLoad(llvm->builder, signed_ptr, llvm_unnamed);
+            LLVMValueRef endian_val = (load_type == LLVMInt64Type()) ?
+                        signed_val :
+                        ((flags & MO_SIGN) ?
+                             LLVMBuildSExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed) :
+                             LLVMBuildZExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed));
+            LLVMValueRef val = (flags & MO_BSWAP) ?
+                    LLVMBuildBSwap(llvm->builder, endian_val) :
+                    endian_val;
+
+            LLVMBuildStore(llvm->builder, val, t0);
             break;
+        }
         case INDEX_op_call: {
             void *ptr = (void *)op->args[TCGOP_CALLO(op) + TCGOP_CALLI(op)];
 
