@@ -86,8 +86,10 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/runtime-stubs.bc \
 	$(BUILD)/target/s390x/cc_helper.bc \
 	$(BUILD)/target/s390x/fpu_helper.bc \
+	$(BUILD)/target/s390x/int_helper.bc \
 	$(BUILD)/target/s390x/helper.bc \
 	$(BUILD)/target/s390x/mem_helper.bc \
+	$(BUILD)/target/s390x/misc_helper.bc \
 	$(BUILD)/tcg/tcg-common.bc
 
 .PHONY: runtime
