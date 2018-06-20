@@ -86,9 +86,6 @@ struct CPUState *libtcg_init(char *path)
     do_restart_interrupt(&cpu->env);
     cpu->env.psw.mask &= ~ PSW_MASK_PER;
 
-    // generate 1 insn per tb
-    cpu_single_step(&cpu->parent_obj, true);
-
     // make sure saved state has 0 icount_decr
     cpu->parent_obj.icount_decr.u32 = 0;
 
@@ -104,6 +101,8 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
         tb = tcg_tb_alloc(tcg_ctx);
         if (!tb)
             return NULL;
+        // generate 1 insn per tb
+        tb->cflags = (tb->cflags & ~CF_COUNT_MASK) | 1;
     }
     // translate-all.c:1272
     cpu_get_tb_cpu_state(&S390_CPU(cpu)->env, &tb->pc, &tb->cs_base, &tb->flags);
