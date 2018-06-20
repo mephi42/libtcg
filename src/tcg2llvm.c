@@ -227,7 +227,7 @@ static LLVMValueRef llvm_cast_op(struct llvm *llvm, struct TCGContext *s, TCGArg
 
 static LLVMValueRef llvm_memop_bswap(struct llvm *llvm, LLVMValueRef v, TCGMemOp memop)
 {
-    return (memop & MO_BSWAP) ? LLVMBuildBSwap(llvm->builder, v) : v;
+    return (memop & MO_BSWAP) ? LLVMBuildBSwap(llvm->builder, v, llvm_unnamed) : v;
 }
 
 // tcg.c:656
@@ -531,6 +531,23 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         }
         case INDEX_op_discard:
             // Ignore, this is an analysis hint.
+            break;
+        case INDEX_op_bswap16_i32:
+        case INDEX_op_bswap16_i64:
+        case INDEX_op_bswap32_i32:
+        case INDEX_op_bswap32_i64: {
+            LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
+            LLVMTypeRef type = (op->opc == INDEX_op_bswap16_i32 || op->opc == INDEX_op_bswap16_i64) ? LLVMInt16Type() : LLVMInt32Type();
+            LLVMValueRef truncated = LLVMBuildTrunc(llvm->builder, t1, type, llvm_unnamed);
+            LLVMValueRef swapped = LLVMBuildBSwap(llvm->builder, truncated, llvm_unnamed);
+            LLVMValueRef extended = LLVMBuildZExt(llvm->builder, swapped, LLVMTypeOf(t1), llvm_unnamed);
+
+            LLVMBuildStore(llvm->builder, extended, t0);
+            break;
+        }
+        case INDEX_op_bswap64_i64:
+            llvm_un_op(llvm, s, op->args[0], &LLVMBuildBSwap, op->args[1]);
             break;
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);

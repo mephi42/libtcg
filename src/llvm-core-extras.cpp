@@ -12,7 +12,8 @@ LLVMValueRef LLVMBuildMemCpy(LLVMBuilderRef B, LLVMValueRef Dst,
                                         SrcAlign, Size));
 }
 
-LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V)
+LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V,
+                            const char *name)
 {
     BasicBlock *BB = unwrap(B)->GetInsertBlock();
     Module *M = BB->getParent()->getParent();
@@ -21,7 +22,7 @@ LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V)
     Value *TheFn = Intrinsic::getDeclaration(M, Intrinsic::bswap, Tys);
     Value *Args[] = { unwrap(V) };
 
-    return wrap(unwrap(B)->CreateCall(TheFn, Args));
+    return wrap(unwrap(B)->CreateCall(TheFn, Args, name));
 }
 
 LLVMValueRef LLVMBuildTrap(LLVMBuilderRef B)
