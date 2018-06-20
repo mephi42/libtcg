@@ -309,7 +309,7 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
     memset(&llvm->locals, 0, sizeof(llvm->locals));
 
     easy_snprintf(name, "pc_0x%"PRIx64, pc);
-    llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMInt64Type(), NULL, 0, false));
+    llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMVoidType(), NULL, 0, false));
     LLVMSetLinkage(llvm_function, LLVMInternalLinkage);
     llvm_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
     LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
@@ -494,16 +494,16 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             break;
         }
         case INDEX_op_exit_tb: {
-            int64_t val = (int64_t)op->args[0];
+            int64_t ret = (int64_t)op->args[0];
 
-            if (val == 0)
-                LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), val, false));
-            else {
+            // cpu-exec.c:177
+            if ((ret & TB_EXIT_MASK) > TB_EXIT_IDX1) {
                 // Interrupts, instruction counting and block linking
                 // must not happen in stand-alone mode.
                 LLVMBuildTrap(llvm->builder);
                 LLVMBuildUnreachable(llvm->builder);
-            }
+            } else
+                LLVMBuildRetVoid(llvm->builder);
             llvm_bb = NULL;
             break;
         }
