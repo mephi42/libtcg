@@ -561,6 +561,12 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, val, dest);
             break;
         }
+        case INDEX_op_ext_i32_i64:
+            llvm_cast_op(llvm, s, op->args[0], &LLVMBuildSExt, op->args[1]);
+            break;
+        case INDEX_op_extu_i32_i64:
+            llvm_cast_op(llvm, s, op->args[0], &LLVMBuildZExt, op->args[1]);
+            break;
         case INDEX_op_discard:
             // Ignore, this is an analysis hint.
             break;
