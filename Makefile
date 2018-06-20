@@ -100,6 +100,7 @@ configure-qemu:
 			--cpu=unknown \
 			--enable-tcg-interpreter \
 			--target-list=$(TARGET)-softmmu \
+			--enable-debug \
 			--disable-fdt \
 			--audio-drv-list= \
 			--disable-cocoa \
@@ -172,5 +173,6 @@ project:
 			echo '$(QEMU)/tcg/$(HOST)' && \
 			echo '$(LLVM)/include' && \
 			echo '$(LLVM_BUILD)/include') >libtcg.includes
-		echo '#define NEED_CPU_H' >libtcg.config
+		(echo '#define NEED_CPU_H' && \
+			echo '#define CONFIG_DEBUG_TCG') >libtcg.config
 		echo '[General]' >libtcg.creator
