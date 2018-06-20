@@ -206,11 +206,6 @@ void helper_be_stw_mmu(CPUArchState *env, target_ulong addr, uint16_t val,
     abort();
 }
 
-void helper_exception(CPUS390XState *env, uint32_t excp)
-{
-    abort();
-}
-
 uint8_t helper_ret_ldb_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
 {
@@ -412,11 +407,6 @@ int s390_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int size, int rw,
 }
 
 unsigned int s390_cpu_halt(S390CPU *cpu)
-{
-    abort();
-}
-
-void s390_cpu_recompute_watchpoints(CPUState *cs)
 {
     abort();
 }
