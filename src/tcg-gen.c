@@ -13,9 +13,10 @@
 int main(int argc, char **argv)
 {
     struct CPUState *cpu;
+    struct S390CPU *s390_cpu;
     struct llvm llvm;
     int pc;
-    int verbose = 0;
+    int verbose = false;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
@@ -27,16 +28,15 @@ int main(int argc, char **argv)
         fprintf(stderr, "libtcg_init() failed\n");
         return EXIT_FAILURE;
     }
+    s390_cpu = S390_CPU(cpu);
 
-    llvm_init(&llvm, argv[1]);
+    llvm_init(&llvm, cpu, argv[1]);
 
     for (pc = 0; pc < llvm.image_size; pc += 2) {
-        struct S390CPU *s390_cpu;
         struct TCGContext *s;
         LLVMValueRef llvm_function;
 
         fprintf(stderr, "pc = 0x%x\n", pc);
-        s390_cpu = S390_CPU(cpu);
         s390_cpu->env.psw.addr = pc;
         s = libtcg_gen(cpu);
         if (!s) {
@@ -52,7 +52,8 @@ int main(int argc, char **argv)
             LLVMDumpValue(llvm_function);
     }
 
-    llvm_add_data(&llvm, cpu);
+    if (verbose)
+        LLVMDumpValue(llvm.dispatch);
     if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
         abort();
     LLVMWriteBitcodeToFile(llvm.module, argv[2]);

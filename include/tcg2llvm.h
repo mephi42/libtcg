@@ -17,15 +17,16 @@ struct llvm {
     LLVMValueRef memory;
     LLVMValueRef cpu;
     LLVMValueRef cpu_env;
+    LLVMValueRef pc;
     LLVMBuilderRef builder;
     LLVMBasicBlockRef labels[MAX_LABELS];
     LLVMValueRef locals[MAX_LOCALS];
     int image_size;
-    LLVMValueRef memory_init;
+    LLVMValueRef dispatch;
+    LLVMValueRef switch_pc;
 };
 
-void llvm_init(struct llvm *llvm, const char *path);
+void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path);
 LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc);
-void llvm_add_data(struct llvm *llvm, struct CPUState *cpu);
 
 #endif

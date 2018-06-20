@@ -76,33 +76,79 @@ static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
     }
 }
 
-static void llvm_init_main(struct llvm *llvm)
+static void llvm_init_dispatch(struct llvm *llvm)
 {
-    LLVMValueRef main = LLVMAddFunction(llvm->module, "main", LLVMFunctionType(LLVMInt32Type(), NULL, 0, false));
-    LLVMBasicBlockRef bb = LLVMAppendBasicBlock(main, llvm_unnamed);
+    LLVMTypeRef signature = LLVMFunctionType(LLVMVoidType(), NULL, 0, false);
+    LLVMBasicBlockRef bb;
+    LLVMBasicBlockRef die;
+    LLVMValueRef pc;
+
+    llvm->dispatch = LLVMAddFunction(llvm->module, "dispatch", signature);
+    bb = LLVMAppendBasicBlock(llvm->dispatch, "entry");
+    die = LLVMAppendBasicBlock(llvm->dispatch, "die");
+
+    LLVMPositionBuilderAtEnd(llvm->builder, die);
+    LLVMBuildTrap(llvm->builder);
+    LLVMBuildRetVoid(llvm->builder);
 
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
-    LLVMBuildMemCpy(llvm->builder, llvm->memory, 1, llvm->memory_init, 1, llvm->image_size);
-    LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt32Type(), 0, false));
+    pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
+    llvm->switch_pc = LLVMBuildSwitch(llvm->builder, pc, die, 10);
 }
 
-void llvm_init(struct llvm *llvm, const char *path)
+static void llvm_init_main(struct llvm *llvm, struct CPUState *cpu)
+{
+    struct S390CPU *s390_cpu = S390_CPU(cpu);
+    hwaddr image_size = llvm->image_size;
+    void *image = cpu_physical_memory_map(0, &image_size, false);
+    LLVMValueRef main = LLVMAddFunction(llvm->module, "main", LLVMFunctionType(LLVMInt32Type(), NULL, 0, false));
+    LLVMBasicBlockRef init_bb = LLVMAppendBasicBlock(main, "init");
+    LLVMBasicBlockRef loop_bb = LLVMAppendBasicBlock(main, "loop");
+    LLVMValueRef memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
+
+    LLVMSetInitializer(llvm->cpu, LLVMConstString((const char *)s390_cpu, sizeof(*s390_cpu), true));
+    LLVMSetInitializer(memory_init, LLVMConstString(image, image_size, true));
+    LLVMPositionBuilderAtEnd(llvm->builder, init_bb);
+    LLVMBuildMemCpy(llvm->builder, llvm->memory, 1, memory_init, 1, llvm->image_size);
+    LLVMBuildBr(llvm->builder, loop_bb);
+    LLVMPositionBuilderAtEnd(llvm->builder, loop_bb);
+    LLVMBuildCall(llvm->builder, llvm->dispatch, NULL, 0, llvm_unnamed);
+    LLVMBuildBr(llvm->builder, loop_bb);
+}
+
+void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
 {
     LLVMTypeRef memory_type = LLVMArrayType(LLVMInt8Type(), RAM_SIZE);
-    LLVMValueRef llvm_env_offsets[2] = {
-        LLVMConstInt(LLVMInt32Type(), 0, true),
-        LLVMConstInt(LLVMInt32Type(), ENV_OFFSET, true),
+    LLVMValueRef llvm_env_offsets[] = {
+        LLVMConstInt(LLVMInt32Type(), 0, false),
+        LLVMConstInt(LLVMInt32Type(), ENV_OFFSET, false),
+    };
+    LLVMValueRef llvm_pc_offsets[] = {
+        LLVMConstInt(LLVMInt32Type(), offsetof(CPUS390XState, psw.addr), false),
     };
 
     llvm->module = LLVMModuleCreateWithName(path);
     llvm->memory = LLVMAddGlobal(llvm->module, memory_type, "memory");
     LLVMSetInitializer(llvm->memory, LLVMConstNull(memory_type));
     llvm->cpu = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPU)), "cpu");
-    llvm->cpu_env = LLVMBuildGEP(llvm->builder, llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets), "env");
+    llvm->cpu_env = LLVMConstGEP(llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets));
+    llvm->pc = LLVMConstBitCast(
+                LLVMConstGEP(llvm->cpu_env, llvm_pc_offsets, ARRAY_SIZE(llvm_pc_offsets)),
+                LLVMPointerType(LLVMInt64Type(), 0));
     llvm->builder = LLVMCreateBuilder();
     llvm->image_size = get_image_size(path);
-    llvm->memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
-    llvm_init_main(llvm);
+    llvm_init_dispatch(llvm);
+    llvm_init_main(llvm, cpu);
+}
+
+static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function)
+{
+    LLVMBasicBlockRef bb = LLVMAppendBasicBlock(llvm->dispatch, llvm_unnamed);
+
+    LLVMPositionBuilderAtEnd(llvm->builder, bb);
+    LLVMBuildCall(llvm->builder, function, NULL, 0, llvm_unnamed);
+    LLVMBuildRetVoid(llvm->builder);
+    LLVMAddCase(llvm->switch_pc, LLVMConstInt(LLVMInt64Type(), pc, false), bb);
 }
 
 #define easy_snprintf(str, format, ...) str[snprintf(str, sizeof(str) - 1, format, __VA_ARGS__)] = 0
@@ -592,15 +638,6 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             return NULL;
         }
     }
+    llvm_register_pc(llvm, pc, llvm_function);
     return llvm_function;
-}
-
-void llvm_add_data(struct llvm *llvm, struct CPUState *cpu)
-{
-    struct S390CPU *s390_cpu = S390_CPU(cpu);
-    hwaddr len = llvm->image_size;
-    void *image = cpu_physical_memory_map(0, &len, false);
-
-    LLVMSetInitializer(llvm->cpu, LLVMConstString((const char *)s390_cpu, sizeof(*s390_cpu), true));
-    LLVMSetInitializer(llvm->memory_init, LLVMConstString((const char *)image, len, true));
 }
