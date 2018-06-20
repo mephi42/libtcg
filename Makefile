@@ -85,6 +85,7 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/fpu/softfloat.bc \
 	$(BUILD)/runtime-stubs.bc \
 	$(BUILD)/target/s390x/cc_helper.bc \
+	$(BUILD)/target/s390x/crypto_helper.bc \
 	$(BUILD)/target/s390x/fpu_helper.bc \
 	$(BUILD)/target/s390x/int_helper.bc \
 	$(BUILD)/target/s390x/helper.bc \
