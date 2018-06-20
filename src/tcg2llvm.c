@@ -84,12 +84,13 @@ static void llvm_init_dispatch(struct llvm *llvm)
     LLVMValueRef pc;
 
     llvm->dispatch = LLVMAddFunction(llvm->module, "dispatch", signature);
+    LLVMSetLinkage(llvm->dispatch, LLVMInternalLinkage);
     bb = LLVMAppendBasicBlock(llvm->dispatch, "entry");
     die = LLVMAppendBasicBlock(llvm->dispatch, "die");
 
     LLVMPositionBuilderAtEnd(llvm->builder, die);
     LLVMBuildTrap(llvm->builder);
-    LLVMBuildRetVoid(llvm->builder);
+    LLVMBuildUnreachable(llvm->builder);
 
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
     pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
@@ -309,6 +310,7 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
 
     easy_snprintf(name, "pc_0x%"PRIx64, pc);
     llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMInt64Type(), NULL, 0, false));
+    LLVMSetLinkage(llvm_function, LLVMInternalLinkage);
     llvm_bb = LLVMAppendBasicBlock(llvm_function, llvm_unnamed);
     LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
 
@@ -494,8 +496,14 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_exit_tb: {
             int64_t val = (int64_t)op->args[0];
 
-            // TODO: handle pointer part of val
-            LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), val, false));
+            if (val == 0)
+                LLVMBuildRet(llvm->builder, LLVMConstInt(LLVMInt64Type(), val, false));
+            else {
+                // Interrupts, instruction counting and block linking
+                // must not happen in stand-alone mode.
+                LLVMBuildTrap(llvm->builder);
+                LLVMBuildUnreachable(llvm->builder);
+            }
             llvm_bb = NULL;
             break;
         }
@@ -572,7 +580,7 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             llvm_cast_op(llvm, s, op->args[0], &LLVMBuildZExt, op->args[1]);
             break;
         case INDEX_op_goto_tb:
-            // Ignore, since in stand-alone mode
+            // Simply execute the next instructions, since in stand-alone mode
             // translation block linking should not happen.
             break;
         case INDEX_op_deposit_i32:

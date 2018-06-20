@@ -89,6 +89,9 @@ struct CPUState *libtcg_init(char *path)
     // generate 1 insn per tb
     cpu_single_step(&cpu->parent_obj, true);
 
+    // make sure saved state has 0 icount_decr
+    cpu->parent_obj.icount_decr.u32 = 0;
+
     return &cpu->parent_obj;
 }
 
