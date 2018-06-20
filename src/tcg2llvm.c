@@ -286,6 +286,23 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, t0, t1);
             break;
         }
+        case INDEX_op_st8_i32:
+        case INDEX_op_st8_i64:
+        case INDEX_op_st16_i32:
+        case INDEX_op_st16_i64:
+        case INDEX_op_st32_i64: {
+            LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
+            LLVMTypeRef type = (op->opc == INDEX_op_st8_i32 || op->opc == INDEX_op_st8_i64) ?
+                        LLVMInt8Type() :
+                        ((op ->opc == INDEX_op_st16_i32 || op->opc == INDEX_op_st16_i64) ?
+                             LLVMInt16Type() :
+                             LLVMInt32Type());
+            LLVMValueRef val = LLVMBuildTrunc(llvm->builder, t0, type, llvm_unnamed);
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], type);
+
+            LLVMBuildStore(llvm->builder, val, t1);
+            break;
+        }
         case INDEX_op_brcond_i32:
         case INDEX_op_brcond_i64: {
             LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
