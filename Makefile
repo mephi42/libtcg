@@ -69,13 +69,19 @@ $(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CXX) -c $(CXXFLAGS) $< -o $@
 
+CFLAGS_RUNTIME=\
+	$(CFLAGS) \
+	-Wno-error=unused-parameter \
+	-Wno-error=sign-compare \
+	-Wno-error=missing-field-initializers
+
 $(BUILD)/%.bc: $(QEMU)/%.c
 		mkdir -p $(shell dirname $@)
-		clang -c -emit-llvm $(CFLAGS) -Wno-error $< -o $@
+		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
 
 $(BUILD)/%.bc: $(SRC)/%.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
-		clang -c -emit-llvm $(CFLAGS) -Wno-error $< -o $@
+		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
 
 $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $@)

@@ -18,6 +18,8 @@
 #include "trace/control-internal.h"
 #include "trace-root.h"
 
+extern char memory[];
+
 TraceEvent _TRACE_GUEST_MEM_BEFORE_EXEC_EVENT;
 
 int clp_service_call(S390CPU *cpu, uint8_t r2, uintptr_t ra)
@@ -161,67 +163,67 @@ void helper_atomic_sto_be_mmu(CPUArchState *env, target_ulong addr, Int128 val,
 uint32_t helper_be_ldl_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return be32_to_cpu(*(uint32_t *)&memory[addr]);
 }
 
 uint64_t helper_be_ldq_mmu(CPUArchState *env, target_ulong addr,
                            TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return be64_to_cpu(*(uint64_t *)&memory[addr]);
 }
 
 tcg_target_ulong helper_be_ldul_mmu(CPUArchState *env, target_ulong addr,
                                     TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return be32_to_cpu(*(uint32_t *)&memory[addr]);
 }
 
 tcg_target_ulong helper_be_lduw_mmu(CPUArchState *env, target_ulong addr,
                                     TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return be16_to_cpu(*(uint16_t *)&memory[addr]);
 }
 
 uint16_t helper_be_ldw_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return be16_to_cpu(*(uint16_t *)&memory[addr]);
 }
 
 void helper_be_stl_mmu(CPUArchState *env, target_ulong addr, uint32_t val,
                        TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    *(uint32_t *)&memory[addr] = cpu_to_be32(val);
 }
 
 void helper_be_stq_mmu(CPUArchState *env, target_ulong addr, uint64_t val,
                        TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    *(uint64_t *)&memory[addr] = cpu_to_be64(val);
 }
 
 void helper_be_stw_mmu(CPUArchState *env, target_ulong addr, uint16_t val,
                        TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    *(uint16_t *)&memory[addr] = cpu_to_be16(val);
 }
 
 uint8_t helper_ret_ldb_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return (uint8_t)memory[addr];
 }
 
 tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
                                      TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    return (uint8_t)memory[addr];
 }
 
 void helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
                         TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    abort();
+    memory[addr] = (char)val;
 }
 
 void ioinst_handle_chsc(S390CPU *cpu, uint32_t ipb, uintptr_t ra)
@@ -484,22 +486,18 @@ void timer_mod(QEMUTimer *ts, int64_t expire_timer)
 
 void tlb_flush(CPUState *cpu)
 {
-    abort();
 }
 
 void tlb_flush_all_cpus_synced(CPUState *src_cpu)
 {
-    abort();
 }
 
 void tlb_flush_page(CPUState *cpu, target_ulong addr)
 {
-    abort();
 }
 
 void tlb_flush_page_all_cpus_synced(CPUState *src, target_ulong addr)
 {
-    abort();
 }
 
 int trace_events_enabled_count;
