@@ -15,8 +15,10 @@ int main(int argc, char **argv)
     struct CPUState *cpu;
     struct S390CPU *s390_cpu;
     struct llvm llvm;
+    int pc_begin, pc_end;
     int pc;
-    int verbose = false;
+    int debug_pc = -1;
+    bool verbose = debug_pc >= 0;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
@@ -32,7 +34,14 @@ int main(int argc, char **argv)
 
     llvm_init(&llvm, cpu, argv[1]);
 
-    for (pc = 0; pc < llvm.image_size; pc += 2) {
+    if (debug_pc >= 0) {
+        pc_begin = debug_pc;
+        pc_end = debug_pc + 2;
+    } else {
+        pc_begin = 0;
+        pc_end = llvm.image_size;
+    }
+    for (pc = pc_begin; pc < pc_end; pc += 2) {
         struct TCGContext *s;
         LLVMValueRef llvm_function;
 
@@ -56,5 +65,6 @@ int main(int argc, char **argv)
         LLVMDumpValue(llvm.dispatch);
     if (LLVMVerifyModule(llvm.module, LLVMPrintMessageAction, NULL))
         abort();
-    LLVMWriteBitcodeToFile(llvm.module, argv[2]);
+    if (debug_pc < 0)
+        LLVMWriteBitcodeToFile(llvm.module, argv[2]);
 }
