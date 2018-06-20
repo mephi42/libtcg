@@ -230,6 +230,16 @@ static LLVMValueRef llvm_memop_bswap(struct llvm *llvm, LLVMValueRef v, TCGMemOp
     return (memop & MO_BSWAP) ? LLVMBuildBSwap(llvm->builder, v, llvm_unnamed) : v;
 }
 
+static LLVMValueRef llvm_ext_ld(struct llvm *llvm, struct TCGContext *s, TCGArg dst, TCGArg base, TCGArg offset, LLVMTypeRef type, llvm_cast_op_f f)
+{
+    LLVMValueRef llvm_dst = llvm_var(llvm, s, dst);
+    LLVMValueRef llvm_op = llvm_base_offset(llvm, s, base, offset, type);
+    LLVMValueRef llvm_op_val = LLVMBuildLoad(llvm->builder, llvm_op, llvm_unnamed);
+    LLVMValueRef result = f(llvm->builder, llvm_op_val, LLVMGetElementType(LLVMTypeOf(llvm_dst)), llvm_unnamed);
+
+    return LLVMBuildStore(llvm->builder, result, llvm_dst);
+}
+
 // tcg.c:656
 typedef struct TCGHelperInfo {
     void *func;
@@ -278,6 +288,28 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, t1v, t0);
             break;
         }
+        case INDEX_op_ld8s_i32:
+        case INDEX_op_ld8s_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt8Type(), &LLVMBuildSExt);
+            break;
+        case INDEX_op_ld8u_i32:
+        case INDEX_op_ld8u_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt8Type(), &LLVMBuildZExt);
+            break;
+        case INDEX_op_ld16s_i32:
+        case INDEX_op_ld16s_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt16Type(), &LLVMBuildSExt);
+            break;
+        case INDEX_op_ld16u_i32:
+        case INDEX_op_ld16u_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt16Type(), &LLVMBuildZExt);
+            break;
+        case INDEX_op_ld32s_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt32Type(), &LLVMBuildSExt);
+            break;
+        case INDEX_op_ld32u_i64:
+            llvm_ext_ld(llvm, s, op->args[0], op->args[1], op->args[2], LLVMInt32Type(), &LLVMBuildZExt);
+            break;
         case INDEX_op_st_i32:
         case INDEX_op_st_i64: {
             LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
