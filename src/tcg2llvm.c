@@ -269,22 +269,25 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, t1, t0);
             break;
         }
-        case INDEX_op_ld_i32: {
+        case INDEX_op_ld_i32:
+        case INDEX_op_ld_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMInt32Type());
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMGetElementType(LLVMTypeOf(t0)));
             LLVMValueRef t1v = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
 
             LLVMBuildStore(llvm->builder, t1v, t0);
             break;
         }
-        case INDEX_op_st_i32: {
+        case INDEX_op_st_i32:
+        case INDEX_op_st_i64: {
             LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
-            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMInt32Type());
+            LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], op->args[2], LLVMTypeOf(t0));
 
             LLVMBuildStore(llvm->builder, t0, t1);
             break;
         }
-        case INDEX_op_brcond_i32: {
+        case INDEX_op_brcond_i32:
+        case INDEX_op_brcond_i64: {
             LLVMValueRef t0 = llvm_var_value(llvm, s, op->args[0]);
             LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
             TCGCond cond = (TCGCond)op->args[2];
@@ -497,6 +500,21 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMBuildStore(llvm->builder, val, dest);
             break;
         }
+        case INDEX_op_setcond_i32:
+        case INDEX_op_setcond_i64: {
+            LLVMValueRef dest = llvm_var(llvm, s, op->args[0]);
+            LLVMValueRef t1 = llvm_var_value(llvm, s, op->args[1]);
+            LLVMValueRef t2 = llvm_var_value(llvm, s, op->args[2]);
+            TCGCond cond = (TCGCond)op->args[3];
+            LLVMValueRef llvm_cond = LLVMBuildICmp(llvm->builder, llvm_int_predicate(cond), t1, t2, llvm_unnamed);
+            LLVMValueRef val = LLVMBuildZExt(llvm->builder, llvm_cond, LLVMGetElementType(LLVMTypeOf(dest)), llvm_unnamed);
+
+            LLVMBuildStore(llvm->builder, val, dest);
+            break;
+        }
+        case INDEX_op_discard:
+            // Ignore, this is an analysis hint.
+            break;
         default:
             fprintf(stderr, "Unsupported op: %s\n", def->name);
             return NULL;
