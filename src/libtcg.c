@@ -86,6 +86,9 @@ struct CPUState *libtcg_init(char *path)
     do_restart_interrupt(&cpu->env);
     cpu->env.psw.mask &= ~ PSW_MASK_PER;
 
+    // generate 1 insn per tb
+    cpu_single_step(&cpu->parent_obj, true);
+
     return &cpu->parent_obj;
 }
 

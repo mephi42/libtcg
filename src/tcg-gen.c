@@ -15,6 +15,7 @@ int main(int argc, char **argv)
     struct CPUState *cpu;
     struct llvm llvm;
     int pc;
+    int verbose = 0;
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
         struct TCGContext *s;
         LLVMValueRef llvm_function;
 
+        fprintf(stderr, "pc = 0x%x\n", pc);
         s390_cpu = S390_CPU(cpu);
         s390_cpu->env.psw.addr = pc;
         s = libtcg_gen(cpu);
@@ -41,11 +43,13 @@ int main(int argc, char **argv)
             fprintf(stderr, "libtcg_gen() failed\n");
             abort();
         }
-        tcg_dump_ops(s);
+        if (verbose)
+            tcg_dump_ops(s);
         llvm_function = llvm_convert_tb(&llvm, s, pc);
         if (!llvm_function)
             abort();
-        LLVMDumpValue(llvm_function);
+        if (verbose)
+            LLVMDumpValue(llvm_function);
     }
 
     llvm_add_data(&llvm, cpu);
