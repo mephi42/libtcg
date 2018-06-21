@@ -35,7 +35,22 @@ LDFLAGS=\
 
 TCG_GEN=$(BUILD)/tcg-gen
 
-all: $(TCG_GEN)
+RUNTIME_OBJECTS=\
+	$(BUILD)/fpu/softfloat.bc \
+	$(BUILD)/runtime.bc \
+	$(BUILD)/runtime-stubs.bc \
+	$(BUILD)/target/s390x/cc_helper.bc \
+	$(BUILD)/target/s390x/crypto_helper.bc \
+	$(BUILD)/target/s390x/fpu_helper.bc \
+	$(BUILD)/target/s390x/excp_helper.bc \
+	$(BUILD)/target/s390x/int_helper.bc \
+	$(BUILD)/target/s390x/interrupt.bc \
+	$(BUILD)/target/s390x/helper.bc \
+	$(BUILD)/target/s390x/mem_helper.bc \
+	$(BUILD)/target/s390x/misc_helper.bc \
+	$(BUILD)/tcg/tcg-common.bc
+
+all: $(TCG_GEN) $(RUNTIME_OBJECTS)
 
 clean:
 		rm -f $(TCG_GEN)
@@ -87,37 +102,30 @@ $(TCG_GEN): $(TCG_GEN_OBJS)
 		mkdir -p $(shell dirname $@)
 		$(CXX) $(LDFLAGS) $(TCG_GEN_OBJS) -o $(TCG_GEN)
 
-RUNTIME_OBJECTS=\
-	$(BUILD)/fpu/softfloat.bc \
-	$(BUILD)/runtime.bc \
-	$(BUILD)/runtime-stubs.bc \
-	$(BUILD)/target/s390x/cc_helper.bc \
-	$(BUILD)/target/s390x/crypto_helper.bc \
-	$(BUILD)/target/s390x/fpu_helper.bc \
-	$(BUILD)/target/s390x/int_helper.bc \
-	$(BUILD)/target/s390x/interrupt.bc \
-	$(BUILD)/target/s390x/helper.bc \
-	$(BUILD)/target/s390x/mem_helper.bc \
-	$(BUILD)/target/s390x/misc_helper.bc \
-	$(BUILD)/tcg/tcg-common.bc
+.PRECIOUS: build/%-test-code.o
+build/%-test-code.o: test/%.s
+	s390x-ibm-linux-gnu-as -o $@ $<
 
-.PHONY: runtime
-runtime: $(RUNTIME_OBJECTS)
+.PRECIOUS: build/%-test-code.bin
+build/%-test-code.bin: build/%-test-code.o
+	s390x-ibm-linux-gnu-ld -o $@ -Ttext=0 --oformat=binary $<
 
-build/minimal-test-image: test/generate-minimal-image
-	test/generate-minimal-image >build/minimal-test-image
+.PRECIOUS: build/%-test.bc
+build/%-test.bc: build/%-test-code.bin $(TCG_GEN)
+	$(TCG_GEN) $< $@
 
-build/minimal-test-binary.bc: $(TCG_GEN) build/minimal-test-image
-	$(TCG_GEN) build/minimal-test-image build/minimal-test-binary.bc
+.PRECIOUS: build/%-test.o
+build/%-test.o: build/%-test.bc
+	clang -c -o $@ $<
 
-build/minimal-test-binary.o: build/minimal-test-binary.bc
-	clang -c -o build/minimal-test-binary.o build/minimal-test-binary.bc
-
-build/minimal-test-binary: build/minimal-test-binary.o $(RUNTIME_OBJECTS)
-	clang -o build/minimal-test-binary build/minimal-test-binary.o $(RUNTIME_OBJECTS)
+.PRECIOUS: build/%-test
+build/%-test: build/%-test.o $(RUNTIME_OBJECTS)
+	clang -o $@ $< $(RUNTIME_OBJECTS)
 
 .PHONY: test
-test: build/minimal-test-binary
+test: build/minimal-test build/pgm-test
+	build/minimal-test
+	build/pgm-test
 
 .PHONY: configure-qemu
 configure-qemu:

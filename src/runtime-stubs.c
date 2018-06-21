@@ -22,6 +22,14 @@ extern char memory[];
 
 TraceEvent _TRACE_GUEST_MEM_BEFORE_EXEC_EVENT;
 
+bool address_space_access_valid(AddressSpace *as, hwaddr addr, int len,
+                                bool is_write, MemTxAttrs attrs)
+{
+    abort();
+}
+
+AddressSpace address_space_memory;
+
 int clp_service_call(S390CPU *cpu, uint8_t r2, uintptr_t ra)
 {
     abort();
@@ -46,7 +54,7 @@ CPUInterruptHandler cpu_interrupt_handler;
 
 void cpu_loop_exit(CPUState *cpu)
 {
-    abort();
+    siglongjmp(cpu->jmp_env, 1);
 }
 
 void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc)
@@ -54,16 +62,21 @@ void cpu_loop_exit_atomic(CPUState *cpu, uintptr_t pc)
     abort();
 }
 
-void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)
+void cpu_loop_exit_noexc(CPUState *cpu)
 {
     abort();
+}
+
+void cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)
+{
+    cpu_loop_exit(cpu);
 }
 
 void *cpu_physical_memory_map(hwaddr addr,
                               hwaddr *plen,
                               int is_write)
 {
-    abort();
+    return &memory[addr];
 }
 
 void cpu_physical_memory_rw(hwaddr addr, uint8_t *buf,
@@ -75,7 +88,6 @@ void cpu_physical_memory_rw(hwaddr addr, uint8_t *buf,
 void cpu_physical_memory_unmap(void *buffer, hwaddr len,
                                int is_write, hwaddr access_len)
 {
-    abort();
 }
 
 int cpu_watchpoint_insert(CPUState *cpu, vaddr addr, vaddr len,
@@ -85,6 +97,11 @@ int cpu_watchpoint_insert(CPUState *cpu, vaddr addr, vaddr len,
 }
 
 void cpu_watchpoint_remove_all(CPUState *cpu, int mask)
+{
+    abort();
+}
+
+void do_stop_interrupt(CPUS390XState *env)
 {
     abort();
 }
@@ -210,7 +227,12 @@ uint8_t helper_ret_ldb_cmmu(CPUArchState *env, target_ulong addr,
 tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
                                      TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    return (uint8_t)memory[addr];
+    if (addr + sizeof(uint8_t) <= ram_size)
+        return (uint8_t)memory[addr];
+    else {
+        s390_program_interrupt(env, PGM_ADDRESSING, ILEN_AUTO, retaddr);
+        abort();
+    }
 }
 
 void helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
@@ -288,8 +310,16 @@ void ioinst_handle_xsch(S390CPU *cpu, uint64_t reg1, uintptr_t ra)
     abort();
 }
 
+unsigned int max_cpus = 1;
+
 int mmu_translate(CPUS390XState *env, target_ulong vaddr, int rw, uint64_t asc,
                   target_ulong *raddr, int *flags, bool exc)
+{
+    abort();
+}
+
+int mmu_translate_real(CPUS390XState *env, target_ulong raddr, int rw,
+                       target_ulong *addr, int *flags)
 {
     abort();
 }
@@ -311,7 +341,7 @@ ObjectClass *object_class_dynamic_cast_assert(ObjectClass *klass,
 Object *object_dynamic_cast_assert(Object *obj, const char *typename,
                                    const char *file, int line, const char *func)
 {
-    abort();
+    return obj;
 }
 
 ObjectClass *object_get_class(Object *obj)
@@ -376,6 +406,21 @@ QEMUS390FlicIO *qemu_s390_flic_dequeue_io(QEMUS390FLICState *flic,
     abort();
 }
 
+void qemu_s390_flic_dequeue_crw_mchk(QEMUS390FLICState *flic)
+{
+    abort();
+}
+
+uint32_t qemu_s390_flic_dequeue_service(QEMUS390FLICState *flic)
+{
+    abort();
+}
+
+bool qemu_s390_flic_has_any(QEMUS390FLICState *flic)
+{
+    return false;
+}
+
 bool qemu_s390_flic_has_crw_mchk(QEMUS390FLICState *flic)
 {
     abort();
@@ -415,13 +460,12 @@ int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
     abort();
 }
 
-int s390_cpu_handle_mmu_fault(CPUState *cpu, vaddr address, int size, int rw,
-                              int mmu_idx)
+unsigned int s390_cpu_halt(S390CPU *cpu)
 {
-    abort();
+    exit((int)cpu->env.regs[2]);
 }
 
-unsigned int s390_cpu_halt(S390CPU *cpu)
+void s390_cpu_unhalt(S390CPU *cpu)
 {
     abort();
 }
@@ -444,12 +488,12 @@ void s390_get_feat_block(S390FeatType type, uint8_t *data)
 
 S390FLICState *s390_get_flic(void)
 {
-    abort();
+    return NULL;
 }
 
 QEMUS390FLICState *s390_get_qemu_flic(S390FLICState *fs)
 {
-    abort();
+    return QEMU_S390_FLIC(fs);
 }
 
 S390SKeysState *s390_get_skeys_device(void)
@@ -468,6 +512,11 @@ int s390_virtio_hypercall(CPUS390XState *env)
 }
 
 int sclp_service_call(CPUS390XState *env, uint64_t sccb, uint32_t code)
+{
+    abort();
+}
+
+int slow_bitmap_empty(const unsigned long *bitmap, long bits)
 {
     abort();
 }
@@ -499,6 +548,13 @@ void tlb_flush_page(CPUState *cpu, target_ulong addr)
 
 void tlb_flush_page_all_cpus_synced(CPUState *src, target_ulong addr)
 {
+}
+
+void tlb_set_page(CPUState *cpu, target_ulong vaddr,
+                  hwaddr paddr, int prot,
+                  int mmu_idx, target_ulong size)
+{
+    abort();
 }
 
 int trace_events_enabled_count;
