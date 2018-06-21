@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+import struct
+import sys
+
+image = bytearray(0x204)
+image[0x1a0:0x1af] = struct.pack('>QQ', 0x0, 0x200)  # restart new psw
+image[0x200:0x204] = struct.pack('>L', 0xa7f40000)  # br $
+sys.stdout.write(image)

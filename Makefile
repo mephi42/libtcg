@@ -104,6 +104,21 @@ RUNTIME_OBJECTS=\
 .PHONY: runtime
 runtime: $(RUNTIME_OBJECTS)
 
+build/minimal-test-image: test/generate-minimal-image
+	test/generate-minimal-image >build/minimal-test-image
+
+build/minimal-test-binary.bc: $(TCG_GEN) build/minimal-test-image
+	$(TCG_GEN) build/minimal-test-image build/minimal-test-binary.bc
+
+build/minimal-test-binary.o: build/minimal-test-binary.bc
+	clang -c -o build/minimal-test-binary.o build/minimal-test-binary.bc
+
+build/minimal-test-binary: build/minimal-test-binary.o $(RUNTIME_OBJECTS)
+	clang -o build/minimal-test-binary build/minimal-test-binary.o $(RUNTIME_OBJECTS)
+
+.PHONY: test
+test: build/minimal-test-binary
+
 .PHONY: configure-qemu
 configure-qemu:
 		mkdir -p $(QEMU_BUILD)
