@@ -42,15 +42,7 @@ GuestPanicInformation *cpu_get_crash_info(CPUState *cpu)
     abort();
 }
 
-void cpu_inject_clock_comparator(S390CPU *cpu)
-{
-    abort();
-}
-
-void cpu_inject_cpu_timer(S390CPU *cpu)
-{
-    abort();
-}
+CPUInterruptHandler cpu_interrupt_handler;
 
 void cpu_loop_exit(CPUState *cpu)
 {
@@ -383,6 +375,26 @@ QEMUS390FlicIO *qemu_s390_flic_dequeue_io(QEMUS390FLICState *flic,
     abort();
 }
 
+bool qemu_s390_flic_has_crw_mchk(QEMUS390FLICState *flic)
+{
+    abort();
+}
+
+bool qemu_s390_flic_has_io(QEMUS390FLICState *fs, uint64_t cr6)
+{
+    abort();
+}
+
+bool qemu_s390_flic_has_service(QEMUS390FLICState *flic)
+{
+    abort();
+}
+
+S390FLICStateClass *s390_get_flic_class(S390FLICState *fs)
+{
+    abort();
+}
+
 void qemu_system_guest_panicked(GuestPanicInformation *info)
 {
     abort();
@@ -445,18 +457,6 @@ S390SKeysState *s390_get_skeys_device(void)
 }
 
 bool s390_has_feat(S390Feat feat)
-{
-    abort();
-}
-
-void s390_program_interrupt(CPUS390XState *env, uint32_t code, int ilen,
-                            uintptr_t ra)
-{
-    abort();
-}
-
-void s390_io_interrupt(uint16_t subchannel_id, uint16_t subchannel_nr,
-                       uint32_t io_int_parm, uint32_t io_int_word)
 {
     abort();
 }

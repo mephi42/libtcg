@@ -94,6 +94,7 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/target/s390x/crypto_helper.bc \
 	$(BUILD)/target/s390x/fpu_helper.bc \
 	$(BUILD)/target/s390x/int_helper.bc \
+	$(BUILD)/target/s390x/interrupt.bc \
 	$(BUILD)/target/s390x/helper.bc \
 	$(BUILD)/target/s390x/mem_helper.bc \
 	$(BUILD)/target/s390x/misc_helper.bc \
@@ -183,5 +184,7 @@ project:
 			echo '$(LLVM)/include' && \
 			echo '$(LLVM_BUILD)/include') >libtcg.includes
 		(echo '#define NEED_CPU_H' && \
-			echo '#define CONFIG_DEBUG_TCG') >libtcg.config
+			echo '#define CONFIG_DEBUG_TCG' && \
+			echo '#define CONFIG_TCG' && \
+			echo '#define CONFIG_SOFTMMU') >libtcg.config
 		echo '[General]' >libtcg.creator
