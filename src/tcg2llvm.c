@@ -84,7 +84,6 @@ static void llvm_init_dispatch(struct llvm *llvm)
     LLVMValueRef pc;
 
     llvm->dispatch = LLVMAddFunction(llvm->module, "dispatch", signature);
-    LLVMSetLinkage(llvm->dispatch, LLVMInternalLinkage);
     bb = LLVMAppendBasicBlock(llvm->dispatch, "entry");
     die = LLVMAppendBasicBlock(llvm->dispatch, "die");
 
@@ -97,24 +96,17 @@ static void llvm_init_dispatch(struct llvm *llvm)
     llvm->switch_pc = LLVMBuildSwitch(llvm->builder, pc, die, 10);
 }
 
-static void llvm_init_main(struct llvm *llvm, struct CPUState *cpu)
+static void llvm_init_globals(struct llvm *llvm, struct CPUState *cpu)
 {
     struct S390CPU *s390_cpu = S390_CPU(cpu);
     hwaddr image_size = llvm->image_size;
     void *image = cpu_physical_memory_map(0, &image_size, false);
-    LLVMValueRef main = LLVMAddFunction(llvm->module, "main", LLVMFunctionType(LLVMInt32Type(), NULL, 0, false));
-    LLVMBasicBlockRef init_bb = LLVMAppendBasicBlock(main, "init");
-    LLVMBasicBlockRef loop_bb = LLVMAppendBasicBlock(main, "loop");
     LLVMValueRef memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
+    LLVMValueRef memory_init_size = LLVMAddGlobal(llvm->module, LLVMInt32Type(), "memory_init_size");
 
     LLVMSetInitializer(llvm->cpu, LLVMConstString((const char *)s390_cpu, sizeof(*s390_cpu), true));
     LLVMSetInitializer(memory_init, LLVMConstString(image, image_size, true));
-    LLVMPositionBuilderAtEnd(llvm->builder, init_bb);
-    LLVMBuildMemCpy(llvm->builder, llvm->memory, 1, memory_init, 1, llvm->image_size);
-    LLVMBuildBr(llvm->builder, loop_bb);
-    LLVMPositionBuilderAtEnd(llvm->builder, loop_bb);
-    LLVMBuildCall(llvm->builder, llvm->dispatch, NULL, 0, llvm_unnamed);
-    LLVMBuildBr(llvm->builder, loop_bb);
+    LLVMSetInitializer(memory_init_size, LLVMConstInt(LLVMInt32Type(), llvm->image_size, false));
 }
 
 void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
@@ -138,8 +130,8 @@ void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
                 LLVMPointerType(LLVMInt64Type(), 0));
     llvm->builder = LLVMCreateBuilder();
     llvm->image_size = get_image_size(path);
+    llvm_init_globals(llvm, cpu);
     llvm_init_dispatch(llvm);
-    llvm_init_main(llvm, cpu);
 }
 
 static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function)

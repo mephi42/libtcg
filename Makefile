@@ -71,9 +71,9 @@ $(BUILD)/%.o: $(SRC)/%.cpp $(wildcard include/*.h)
 
 CFLAGS_RUNTIME=\
 	$(CFLAGS) \
-	-Wno-error=unused-parameter \
-	-Wno-error=sign-compare \
-	-Wno-error=missing-field-initializers
+	-Wno-unused-parameter \
+	-Wno-sign-compare \
+	-Wno-missing-field-initializers
 
 $(BUILD)/%.bc: $(QEMU)/%.c
 		mkdir -p $(shell dirname $@)
@@ -89,6 +89,7 @@ $(TCG_GEN): $(TCG_GEN_OBJS)
 
 RUNTIME_OBJECTS=\
 	$(BUILD)/fpu/softfloat.bc \
+	$(BUILD)/runtime.bc \
 	$(BUILD)/runtime-stubs.bc \
 	$(BUILD)/target/s390x/cc_helper.bc \
 	$(BUILD)/target/s390x/crypto_helper.bc \
