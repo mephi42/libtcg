@@ -409,13 +409,13 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             TCGMemOp memop = get_memop(flags);
             LLVMTypeRef load_type = llvm_memop_type(memop);
             LLVMValueRef t1 = llvm_base_offset(llvm, s, op->args[1], 0, load_type);
-            LLVMValueRef signed_val = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
-            LLVMValueRef endian_val = (load_type == LLVMInt64Type()) ?
+            LLVMValueRef endian_val = LLVMBuildLoad(llvm->builder, t1, llvm_unnamed);
+            LLVMValueRef signed_val = llvm_memop_bswap(llvm, endian_val, memop);
+            LLVMValueRef val = (load_type == LLVMInt64Type()) ?
                         signed_val :
                         ((memop & MO_SIGN) ?
                              LLVMBuildSExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed) :
                              LLVMBuildZExt(llvm->builder, signed_val, LLVMInt64Type(), llvm_unnamed));
-            LLVMValueRef val = llvm_memop_bswap(llvm, endian_val, memop);
 
             LLVMBuildStore(llvm->builder, val, t0);
             break;
