@@ -1,4 +1,5 @@
 include env
+-include modules/Makefile.include
 
 PKGS=glib-2.0 pixman-1 zlib
 LLVM_COMPONENTS=analysis bitwriter core
@@ -36,19 +37,20 @@ LDFLAGS=\
 TCG_GEN=$(BUILD)/tcg-gen
 
 RUNTIME_OBJECTS=\
-	$(BUILD)/fpu/softfloat.bc \
-	$(BUILD)/runtime.bc \
-	$(BUILD)/runtime-stubs.bc \
-	$(BUILD)/target/s390x/cc_helper.bc \
-	$(BUILD)/target/s390x/crypto_helper.bc \
-	$(BUILD)/target/s390x/fpu_helper.bc \
-	$(BUILD)/target/s390x/excp_helper.bc \
-	$(BUILD)/target/s390x/int_helper.bc \
-	$(BUILD)/target/s390x/interrupt.bc \
-	$(BUILD)/target/s390x/helper.bc \
-	$(BUILD)/target/s390x/mem_helper.bc \
-	$(BUILD)/target/s390x/misc_helper.bc \
-	$(BUILD)/tcg/tcg-common.bc
+	$(BUILD)/qemu/fpu/softfloat.bc \
+	$(BUILD)/src/runtime.bc \
+	$(BUILD)/src/runtime-stubs.bc \
+	$(BUILD)/qemu/target/s390x/cc_helper.bc \
+	$(BUILD)/qemu/target/s390x/crypto_helper.bc \
+	$(BUILD)/qemu/target/s390x/fpu_helper.bc \
+	$(BUILD)/qemu/target/s390x/excp_helper.bc \
+	$(BUILD)/qemu/target/s390x/int_helper.bc \
+	$(BUILD)/qemu/target/s390x/interrupt.bc \
+	$(BUILD)/qemu/target/s390x/helper.bc \
+	$(BUILD)/qemu/target/s390x/mem_helper.bc \
+	$(BUILD)/qemu/target/s390x/misc_helper.bc \
+	$(BUILD)/qemu/tcg/tcg-common.bc \
+	$(MODULES_RUNTIME_OBJECTS)
 
 all: $(TCG_GEN) $(RUNTIME_OBJECTS)
 
@@ -90,11 +92,7 @@ CFLAGS_RUNTIME=\
 	-Wno-sign-compare \
 	-Wno-missing-field-initializers
 
-$(BUILD)/%.bc: $(QEMU)/%.c
-		mkdir -p $(shell dirname $@)
-		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
-
-$(BUILD)/%.bc: $(SRC)/%.c $(wildcard include/*.h)
+$(BUILD)/%.bc: %.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
 

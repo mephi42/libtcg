@@ -1,7 +1,11 @@
 #ifndef RUNTIME_SCLP_H
 #define RUNTIME_SCLP_H
 
+#include <stddef.h>
 #include <stdint.h>
+
+struct CPUS390XState;
+struct SCCB;
 
 struct sclp_handler {
     uint32_t value;
