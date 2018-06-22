@@ -388,14 +388,13 @@ int qemu_log(const char *fmt, ...)
 
 int qemu_loglevel;
 
+// We are single-threaded, so locks are not needed.
 void qemu_mutex_lock_iothread(void)
 {
-    abort();
 }
 
 void qemu_mutex_unlock_iothread(void)
 {
-    abort();
 }
 
 const char *qemu_name = "qemu";
