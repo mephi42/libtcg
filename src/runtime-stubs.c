@@ -11,6 +11,7 @@
 #include "hw/s390x/sclp.h"
 #include "hw/s390x/storage-keys.h"
 #include "libtcg.h"
+#include "runtime-sclp.h"
 #include "sysemu/sysemu.h"
 #include "target/s390x/internal.h"
 #include "tcg/tcg.h"
@@ -510,9 +511,21 @@ int s390_virtio_hypercall(CPUS390XState *env)
     abort();
 }
 
-int sclp_service_call(CPUS390XState *env, uint64_t sccb, uint32_t code)
+struct sclp_handler sclp_handlers[MAX_SCLP_HANDLERS];
+size_t n_sclp_handlers;
+
+int sclp_service_call(CPUS390XState *env, uint64_t sccb_addr, uint32_t code)
 {
-    abort();
+    struct SCCB *sccb = (struct SCCB *)&memory[sccb_addr];
+    size_t i;
+
+    for (i = 0; i < n_sclp_handlers; ++i)
+        if ((code & sclp_handlers[i].mask) == sclp_handlers[i].value)
+            return sclp_handlers[i].f(env, sccb, code);
+
+    // event-facility.c:380
+    sccb->h.response_code = cpu_to_be16(SCLP_RC_INVALID_SCLP_COMMAND);
+    return 0;
 }
 
 int slow_bitmap_empty(const unsigned long *bitmap, long bits)
