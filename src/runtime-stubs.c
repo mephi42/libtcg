@@ -453,17 +453,17 @@ bool qemu_s390_flic_has_any(QEMUS390FLICState *flic)
 
 bool qemu_s390_flic_has_crw_mchk(QEMUS390FLICState *flic)
 {
-    abort();
+    return false;
 }
 
 bool qemu_s390_flic_has_io(QEMUS390FLICState *fs, uint64_t cr6)
 {
-    abort();
+    return false;
 }
 
 bool qemu_s390_flic_has_service(QEMUS390FLICState *flic)
 {
-    abort();
+    return false;
 }
 
 S390FLICStateClass *s390_get_flic_class(S390FLICState *fs)
