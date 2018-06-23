@@ -34,7 +34,7 @@ LDFLAGS=\
 	$(shell pkg-config --libs $(PKGS)) \
 	-framework IOKit
 
-TCG_GEN=$(BUILD)/tcg-gen
+BIN2LLVM=$(BUILD)/bin2llvm
 
 RUNTIME_OBJECTS=\
 	$(BUILD)/qemu/fpu/softfloat.bc \
@@ -52,15 +52,15 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/qemu/tcg/tcg-common.bc \
 	$(MODULES_RUNTIME_OBJECTS)
 
-all: $(TCG_GEN) $(RUNTIME_OBJECTS)
+all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
 
 clean:
-		rm -f $(TCG_GEN)
+		rm -f $(BIN2LLVM)
 
-TCG_GEN_OBJS=\
+BIN2LLVM_OBJS=\
+	$(BUILD)/bin2llvm.o \
 	$(BUILD)/libtcg.o \
 	$(BUILD)/llvm-core-extras.o \
-	$(BUILD)/tcg-gen.o \
 	$(BUILD)/tcg2llvm.o \
 	$(shell find $(QEMU_BUILD) \
 		-name "*.o" \
@@ -96,9 +96,9 @@ $(BUILD)/%.bc: %.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
 		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
 
-$(TCG_GEN): $(TCG_GEN_OBJS)
+$(BIN2LLVM): $(BIN2LLVM_OBJS)
 		mkdir -p $(shell dirname $@)
-		$(CXX) $(LDFLAGS) $(TCG_GEN_OBJS) -o $(TCG_GEN)
+		$(CXX) $(LDFLAGS) $(BIN2LLVM_OBJS) -o $(BIN2LLVM)
 
 .PRECIOUS: build/%-test-code.o
 build/%-test-code.o: test/%.s
@@ -109,8 +109,8 @@ build/%-test-code.bin: build/%-test-code.o
 	s390x-ibm-linux-gnu-ld -o $@ -Ttext=0 --oformat=binary $<
 
 .PRECIOUS: build/%-test.bc
-build/%-test.bc: build/%-test-code.bin $(TCG_GEN)
-	$(TCG_GEN) $< $@
+build/%-test.bc: build/%-test-code.bin $(BIN2LLVM)
+	$(BIN2LLVM) $< $@
 
 .PRECIOUS: build/%-test.o
 build/%-test.o: build/%-test.bc

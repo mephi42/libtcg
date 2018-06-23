@@ -523,9 +523,7 @@ int sclp_service_call(CPUS390XState *env, uint64_t sccb_addr, uint32_t code)
         if ((code & sclp_handlers[i].mask) == sclp_handlers[i].value)
             return sclp_handlers[i].f(env, sccb, code);
 
-    // event-facility.c:380
-    sccb->h.response_code = cpu_to_be16(SCLP_RC_INVALID_SCLP_COMMAND);
-    return 0;
+    abort();
 }
 
 int slow_bitmap_empty(const unsigned long *bitmap, long bits)
