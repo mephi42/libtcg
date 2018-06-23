@@ -100,33 +100,34 @@ $(BIN2LLVM): $(BIN2LLVM_OBJS)
 		mkdir -p $(shell dirname $@)
 		$(CXX) $(LDFLAGS) $(BIN2LLVM_OBJS) -o $(BIN2LLVM)
 
-.PRECIOUS: build/%-test-code.o
-build/%-test-code.o: test/%.s
-	s390x-ibm-linux-gnu-as -o $@ $<
+.PRECIOUS: build/test/%-code.o
+build/test/%-code.o: test/%.s
+		mkdir -p $(shell dirname $@)
+		s390x-ibm-linux-gnu-as -o $@ $<
 
-.PRECIOUS: build/%-test-code.bin
-build/%-test-code.bin: build/%-test-code.o
-	s390x-ibm-linux-gnu-ld -o $@ -Ttext=0 --oformat=binary $<
+.PRECIOUS: build/test/%-code.bin
+build/test/%-code.bin: build/test/%-code.o
+		s390x-ibm-linux-gnu-ld -o $@ -Ttext=0 --oformat=binary $<
 
-.PRECIOUS: build/%-test.bc
-build/%-test.bc: build/%-test-code.bin $(BIN2LLVM)
-	$(BIN2LLVM) $< $@
+.PRECIOUS: build/test/%.bc
+build/test/%.bc: build/test/%-code.bin $(BIN2LLVM)
+		$(BIN2LLVM) $< $@
 
-.PRECIOUS: build/%-test.o
-build/%-test.o: build/%-test.bc
-	clang -c -o $@ $<
+.PRECIOUS: build/test/%.o
+build/test/%.o: build/test/%.bc
+		clang -c -o $@ $<
 
-.PRECIOUS: build/%-test
-build/%-test: build/%-test.o $(RUNTIME_OBJECTS)
-	clang -o $@ $< $(RUNTIME_OBJECTS)
+.PRECIOUS: build/test/%
+build/test/%: build/test/%.o $(RUNTIME_OBJECTS)
+		clang -o $@ $< $(RUNTIME_OBJECTS)
 
 .PHONY: test
-test: build/minimal-test build/pgm-test build/xc0-test build/l-test build/st-test
-	build/minimal-test
-	build/pgm-test
-	build/xc0-test
-	build/l-test
-	build/st-test
+test: build/test/minimal build/test/pgm build/test/xc0 build/test/l build/test/st
+		build/test/minimal
+		build/test/pgm
+		build/test/xc0
+		build/test/l
+		build/test/st
 
 .PHONY: configure-qemu
 configure-qemu:
