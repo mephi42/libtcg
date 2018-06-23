@@ -110,5 +110,8 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
     tcg_func_start(tcg_ctx);
     // translate-all.c:1288
     gen_intermediate_code(cpu, tb);
-    return tcg_ctx;
+    if (tb->size == 0)
+        return NULL;
+    else
+        return tcg_ctx;
 }

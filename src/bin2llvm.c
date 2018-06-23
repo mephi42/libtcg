@@ -48,10 +48,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "pc = 0x%x\n", pc);
         s390_cpu->env.psw.addr = pc;
         s = libtcg_gen(cpu);
-        if (!s) {
-            fprintf(stderr, "libtcg_gen() failed\n");
-            abort();
-        }
+        if (!s)
+            continue;
         if (verbose)
             tcg_dump_ops(s);
         llvm_function = llvm_convert_tb(&llvm, s, pc);
