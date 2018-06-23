@@ -121,13 +121,12 @@ build/test/%.o: build/test/%.bc
 build/test/%: build/test/%.o $(RUNTIME_OBJECTS)
 		clang -o $@ $< $(RUNTIME_OBJECTS)
 
+.PHONY: test-%
+test-%: build/test/%
+		$<
+
 .PHONY: test
-test: build/test/minimal build/test/pgm build/test/xc0 build/test/l build/test/st
-		build/test/minimal
-		build/test/pgm
-		build/test/xc0
-		build/test/l
-		build/test/st
+test: test-minimal test-pgm test-xc0 test-l test-st test-balr test-basr
 
 .PHONY: configure-qemu
 configure-qemu:
