@@ -51,7 +51,7 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:3956
     ram_size = RAM_SIZE;
     // vl.c:3995
-    current_machine = MACHINE(object_new("s390-ccw-virtio-3.0-machine"));
+    current_machine = MACHINE(object_new(machine_type));
     // vl.c:4000
     object_property_add_child(object_get_root(), "machine", OBJECT(current_machine), &error_abort);
     // vl.c:4075

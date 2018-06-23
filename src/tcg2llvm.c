@@ -103,10 +103,14 @@ static void llvm_init_globals(struct llvm *llvm, struct CPUState *cpu)
     void *image = cpu_physical_memory_map(0, &image_size, false);
     LLVMValueRef memory_init = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), llvm->image_size), "memory_init");
     LLVMValueRef memory_init_size = LLVMAddGlobal(llvm->module, LLVMInt32Type(), "memory_init_size");
+    LLVMValueRef cpu_model = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPUModel)), "cpu_model");
+    LLVMValueRef cpu_def = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPUDef)), "cpu_def");
 
     LLVMSetInitializer(llvm->cpu, LLVMConstString((const char *)s390_cpu, sizeof(*s390_cpu), true));
     LLVMSetInitializer(memory_init, LLVMConstString(image, image_size, true));
     LLVMSetInitializer(memory_init_size, LLVMConstInt(LLVMInt32Type(), llvm->image_size, false));
+    LLVMSetInitializer(cpu_model, LLVMConstString((const char *)s390_cpu->model, sizeof(*s390_cpu->model), true));
+    LLVMSetInitializer(cpu_def, LLVMConstString((const char *)s390_cpu->model->def, sizeof(*s390_cpu->model->def), true));
 }
 
 void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)

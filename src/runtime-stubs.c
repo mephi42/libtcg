@@ -7,6 +7,7 @@
 
 #include "exec/exec-all.h"
 #include "exec/helper-proto.h"
+#include "hw/boards.h"
 #include "hw/s390x/s390_flic.h"
 #include "hw/s390x/s390-pci-inst.h"
 #include "hw/s390x/s390-virtio-hcall.h"
@@ -21,7 +22,17 @@
 #include "trace/control-internal.h"
 #include "trace-root.h"
 
+extern struct S390CPU cpu;
+extern struct S390CPUModel cpu_model;
+extern struct S390CPUDef cpu_def;
 extern char memory[];
+
+__attribute__((constructor))
+static void init_cpu()
+{
+    cpu.model = &cpu_model;
+    cpu.model->def = &cpu_def;
+}
 
 TraceEvent _TRACE_GUEST_MEM_BEFORE_EXEC_EVENT;
 
@@ -374,9 +385,26 @@ void probe_write(CPUArchState *env, target_ulong addr, int size, int mmu_idx,
     abort();
 }
 
+static char possible_cpus[sizeof(CPUArchIdList) + sizeof(CPUArchId)];
+static struct MachineState ms;
+
+__attribute__((constructor))
+static void init_ms()
+{
+    // s390-virtio-ccw.c:461
+    ms.possible_cpus = (CPUArchIdList *)&possible_cpus;
+    ms.possible_cpus->len = 1;
+    ms.possible_cpus->cpus[0].arch_id = 0;
+    ms.possible_cpus->cpus[0].vcpus_count = 1;
+    ms.possible_cpus->cpus[0].props.has_core_id = true;
+    ms.possible_cpus->cpus[0].props.core_id = 0;
+    ms.possible_cpus->cpus[0].type = machine_type;
+    ms.possible_cpus->cpus[0].cpu = &cpu.parent_obj.parent_obj.parent_obj;
+}
+
 Object *qdev_get_machine(void)
 {
-    abort();
+    return &ms.parent_obj;
 }
 
 int64_t qemu_clock_get_ns(QEMUClockType type)
@@ -486,7 +514,11 @@ void s390_cpu_virt_mem_handle_exc(S390CPU *cpu, uintptr_t ra)
 int s390_cpu_virt_mem_rw(S390CPU *cpu, vaddr laddr, uint8_t ar, void *hostbuf,
                          int len, bool is_write)
 {
-    abort();
+    if (is_write)
+        memcpy(&memory[laddr], hostbuf, len);
+    else
+        memcpy(hostbuf, &memory[laddr], len);
+    return 0;
 }
 
 void s390_get_feat_block(S390FeatType type, uint8_t *data)
