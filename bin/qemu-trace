@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e -u -x
+kernel="$1"
+shift
+"$(dirname "$0")"/../qemu-build/s390x-softmmu/qemu-system-s390x -kernel "$kernel" -nographic -d cpu -smp 1 -m 1024 -singlestep "$@"

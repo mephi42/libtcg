@@ -1,3 +1,5 @@
+#include <inttypes.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "qemu/osdep.h"
@@ -462,7 +464,13 @@ int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 
 unsigned int s390_cpu_halt(S390CPU *cpu)
 {
-    exit((int)cpu->env.regs[2]);
+    uint64_t r2 = cpu->env.regs[2];
+
+    if (r2) {
+        fprintf(stderr, "R2=0x%"PRIx64"\n", r2);
+        exit(EXIT_FAILURE);
+    } else
+        exit(EXIT_SUCCESS);
 }
 
 void s390_cpu_unhalt(S390CPU *cpu)

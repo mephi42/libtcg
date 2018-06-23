@@ -313,8 +313,8 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
         case INDEX_op_movi_i32:
         case INDEX_op_movi_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
-            LLVMTypeRef type = op->opc == INDEX_op_movi_i32 ? LLVMInt32Type() : LLVMInt64Type();
-            LLVMValueRef t1 = LLVMConstInt(type, (uint32_t)op->args[1], false);
+            LLVMTypeRef type = LLVMGetElementType(LLVMTypeOf(t0));
+            LLVMValueRef t1 = LLVMConstInt(type, (uint64_t)op->args[1], false);
 
             LLVMBuildStore(llvm->builder, t1, t0);
             break;
