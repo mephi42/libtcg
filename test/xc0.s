@@ -1,8 +1,9 @@
-    .org 0x1a0
-    .quad 0,.Lx
-    .org 0x200
+#include "test.h"
+    .org LOWCORE_RESTART_NEW_PSW
+    .quad PSW_MASK_32,.Lx
+    .org LOWCORE_END
 .Lhalt_psw:
-    .quad 0x0002000000000000,0
+    .quad PSW_MASK_WAIT,0
 .Larray:
     .byte 1,2,3,4,5,6,7,8,9,10
     .org 0x280

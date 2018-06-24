@@ -1,10 +1,11 @@
-    .org 0x1a0
-    .quad 0,.Lentry
-    .org 0x1d0
-    .quad 0,.Lpgm
-    .org 0x200
+#include "test.h"
+    .org LOWCORE_RESTART_NEW_PSW
+    .quad PSW_MASK_32,.Lentry
+    .org LOWCORE_PROGRAM_NEW_PSW
+    .quad PSW_MASK_32,.Lpgm
+    .org LOWCORE_END
 .Lhalt_psw:
-    .quad 0x0002000000000000,0
+    .quad PSW_MASK_WAIT,0
 .Lpgm:
     lpswe 0x150
 .Lentry:

@@ -101,13 +101,16 @@ $(BIN2LLVM): $(BIN2LLVM_OBJS)
 		$(CXX) $(LDFLAGS) $(BIN2LLVM_OBJS) -o $(BIN2LLVM)
 
 .PRECIOUS: build/test/%-code.o
-build/test/%-code.o: test/%.s
+build/test/%-code.o: test/%.s $(wildcard test/*.h)
 		mkdir -p $(shell dirname $@)
-		s390x-ibm-linux-gnu-as -o $@ $<
+		$(CPP) $< | s390x-ibm-linux-gnu-as -o $@
 
 .PRECIOUS: build/test/%-code.bin
 build/test/%-code.bin: build/test/%-code.o
-		s390x-ibm-linux-gnu-ld -o $@ -Ttext=0 --oformat=binary $<
+		s390x-ibm-linux-gnu-ld -o $@.tmp -Ttext=0 --oformat=binary $<
+		bin/qemu-system-s390x-trace -kernel $@.tmp -D $@.log
+		tail -9 <$@.log | head -1 | grep R02=0000000000000000 >/dev/null
+		mv $@.tmp $@
 
 .PRECIOUS: build/test/%.bc
 build/test/%.bc: build/test/%-code.bin $(BIN2LLVM)

@@ -1,8 +1,9 @@
-    .org 0x1a0
-    .quad 0,.Lx
-    .org 0x200
+#include "test.h"
+    .org LOWCORE_RESTART_NEW_PSW
+    .quad PSW_MASK_32,.Lx
+    .org LOWCORE_END
 .Lhalt_psw:
-    .quad 0x0002000000000000,0
+    .quad PSW_MASK_WAIT,0
 .Lx:
-    xr 2,2
+    xgr 2,2
     lpswe .Lhalt_psw
