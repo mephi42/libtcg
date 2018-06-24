@@ -76,7 +76,7 @@ static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
     }
 }
 
-static void llvm_init_dispatch(struct llvm *llvm)
+static void llvm_init_dispatch(struct llvm *llvm, struct CPUState *cpu)
 {
     LLVMTypeRef signature = LLVMFunctionType(LLVMVoidType(), NULL, 0, false);
     LLVMBasicBlockRef bb;
@@ -93,6 +93,8 @@ static void llvm_init_dispatch(struct llvm *llvm)
 
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
     pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
+    if (S390_CPU(cpu)->env.psw.mask & PSW_MASK_32)
+        pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0x7fffffff, false), llvm_unnamed);
     llvm->switch_pc = LLVMBuildSwitch(llvm->builder, pc, die, 10);
 }
 
@@ -135,7 +137,7 @@ void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
     llvm->builder = LLVMCreateBuilder();
     llvm->image_size = get_image_size(path);
     llvm_init_globals(llvm, cpu);
-    llvm_init_dispatch(llvm);
+    llvm_init_dispatch(llvm, cpu);
 }
 
 static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function)

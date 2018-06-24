@@ -105,16 +105,18 @@ build/test/%-code.o: test/%.s $(wildcard test/*.h)
 		mkdir -p $(shell dirname $@)
 		$(CPP) $< | s390x-ibm-linux-gnu-as -o $@
 
-.PRECIOUS: build/test/%-code.bin
-build/test/%-code.bin: build/test/%-code.o
+.PRECIOUS: build/test/%.bin
+build/test/%.bin: build/test/%-code.o
 		s390x-ibm-linux-gnu-ld -o $@.tmp -Ttext=0 --oformat=binary $<
-		bin/qemu-system-s390x-trace -kernel $@.tmp -D $@.log
-		tail -9 <$@.log | head -1 | grep R02=0000000000000000 >/dev/null
+		s390x-ibm-linux-gnu-objdump -b binary -m s390 -D $@.tmp >build/test/$*.txt
+		bin/qemu-system-s390x-trace -kernel $@.tmp -D build/test/$*.log
+		tail -9 <build/test/$*.log | head -1 | grep R02=0000000000000000 >/dev/null
 		mv $@.tmp $@
 
 .PRECIOUS: build/test/%.bc
-build/test/%.bc: build/test/%-code.bin $(BIN2LLVM)
+build/test/%.bc: build/test/%.bin $(BIN2LLVM)
 		$(BIN2LLVM) $< $@
+		llvm-dis -o build/test/$*.ll $@
 
 .PRECIOUS: build/test/%.o
 build/test/%.o: build/test/%.bc
