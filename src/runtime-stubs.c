@@ -252,6 +252,12 @@ tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
 void helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
                         TCGMemOpIdx oi, uintptr_t retaddr)
 {
+    // cpu_ldst.h:406
+    int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+    CPUTLBEntry *tlbentry = &env->tlb_table[get_mmuidx(oi)][index];
+
+    tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code = addr;
+    tlbentry->addend = (uintptr_t)&memory;
     memory[addr] = (char)val;
 }
 
