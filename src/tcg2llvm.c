@@ -141,9 +141,11 @@ void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
 static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function)
 {
     LLVMBasicBlockRef bb = LLVMAppendBasicBlock(llvm->dispatch, llvm_unnamed);
+    LLVMValueRef call;
 
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
-    LLVMBuildCall(llvm->builder, function, NULL, 0, llvm_unnamed);
+    call = LLVMBuildCall(llvm->builder, function, NULL, 0, llvm_unnamed);
+    LLVMSetTailCall(call, true);
     LLVMBuildRetVoid(llvm->builder);
     LLVMAddCase(llvm->switch_pc, LLVMConstInt(LLVMInt64Type(), pc, false), bb);
 }
