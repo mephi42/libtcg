@@ -300,6 +300,7 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
     LLVMValueRef llvm_function;
     LLVMBasicBlockRef llvm_bb;
     struct TCGOp *op;
+    bool insn_started = false;
 
     memset(&llvm->labels, 0, sizeof(llvm->labels));
     memset(&llvm->locals, 0, sizeof(llvm->locals));
@@ -313,6 +314,11 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
     QTAILQ_FOREACH (op, &s->ops, link) {
         const TCGOpDef *def = &tcg_op_defs[op->opc];
 
+        if (!insn_started) {
+            if (op->opc == INDEX_op_insn_start)
+                insn_started = true;
+            continue;  // Ignore icount (gen-icount.h:21)
+        }
         switch (op->opc) {
         case INDEX_op_movi_i32:
         case INDEX_op_movi_i64: {
@@ -404,9 +410,6 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             LLVMPositionBuilderAtEnd(llvm->builder, llvm_bb);
             break;
         }
-        case INDEX_op_insn_start:
-            // Ignore.
-            break;
         case INDEX_op_qemu_ld_i64: {
             LLVMValueRef t0 = llvm_var(llvm, s, op->args[0]);
             TCGMemOpIdx flags = (TCGMemOpIdx)op->args[2];
