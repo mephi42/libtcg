@@ -50,6 +50,7 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/qemu/target/s390x/mem_helper.bc \
 	$(BUILD)/qemu/target/s390x/misc_helper.bc \
 	$(BUILD)/qemu/tcg/tcg-common.bc \
+	$(BUILD)/qemu/util/log.bc \
 	$(MODULES_RUNTIME_OBJECTS)
 
 all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
@@ -124,7 +125,7 @@ build/test/%.o: build/test/%.bc
 
 .PRECIOUS: build/test/%
 build/test/%: build/test/%.o $(RUNTIME_OBJECTS)
-		clang -o $@ $< $(RUNTIME_OBJECTS)
+		clang -o $@ $< $(RUNTIME_OBJECTS) $(shell pkg-config --libs glib-2.0)
 
 .PHONY: test-%
 test-%: build/test/%

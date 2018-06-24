@@ -14,6 +14,8 @@
 #include "hw/s390x/sclp.h"
 #include "hw/s390x/storage-keys.h"
 #include "libtcg.h"
+#include "qapi/error.h"
+#include "qemu/cutils.h"
 #include "runtime-sclp.h"
 #include "sysemu/sysemu.h"
 #include "target/s390x/internal.h"
@@ -120,16 +122,9 @@ void do_stop_interrupt(CPUS390XState *env)
     abort();
 }
 
-void g_assertion_message_expr(const char *domain,
-                              const char *file,
-                              int line,
-                              const char *func,
-                              const char *expr)
-{
-    abort();
-}
-
-void g_free(gpointer mem)
+void error_setg_internal(Error **errp,
+                         const char *src, int line, const char *func,
+                         const char *fmt, ...)
 {
     abort();
 }
@@ -330,6 +325,11 @@ void ioinst_handle_xsch(S390CPU *cpu, uint64_t reg1, uintptr_t ra)
     abort();
 }
 
+bool is_daemonized()
+{
+    return false;
+}
+
 unsigned int max_cpus = 1;
 
 int mmu_translate(CPUS390XState *env, target_ulong vaddr, int rw, uint64_t asc,
@@ -418,11 +418,6 @@ int64_t qemu_clock_get_ns(QEMUClockType type)
     abort();
 }
 
-int qemu_log(const char *fmt, ...)
-{
-    abort();
-}
-
 int qemu_loglevel;
 
 // We are single-threaded, so locks are not needed.
@@ -472,7 +467,8 @@ bool qemu_s390_flic_has_service(QEMUS390FLICState *flic)
     return false;
 }
 
-S390FLICStateClass *s390_get_flic_class(S390FLICState *fs)
+int qemu_strtou64(const char *nptr, const char **endptr, int base,
+                  uint64_t *result)
 {
     abort();
 }
@@ -535,6 +531,11 @@ void s390_get_feat_block(S390FeatType type, uint8_t *data)
 S390FLICState *s390_get_flic(void)
 {
     return NULL;
+}
+
+S390FLICStateClass *s390_get_flic_class(S390FLICState *fs)
+{
+    abort();
 }
 
 QEMUS390FLICState *s390_get_qemu_flic(S390FLICState *fs)
@@ -609,6 +610,11 @@ void tlb_flush_page_all_cpus_synced(CPUState *src, target_ulong addr)
 void tlb_set_page(CPUState *cpu, target_ulong vaddr,
                   hwaddr paddr, int prot,
                   int mmu_idx, target_ulong size)
+{
+    abort();
+}
+
+void trace_enable_events(const char *line_buf)
 {
     abort();
 }
