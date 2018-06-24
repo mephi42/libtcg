@@ -81,9 +81,8 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:4572
     qemu_system_reset(SHUTDOWN_CAUSE_NONE);
 
-    // set pc, assume PER is irrelevant
+    // assume PER is irrelevant
     cpu = S390_CPU(first_cpu);
-    do_restart_interrupt(&cpu->env);
     cpu->env.psw.mask &= ~ PSW_MASK_PER;
 
     // make sure saved state has 0 icount_decr
