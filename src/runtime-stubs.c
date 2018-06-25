@@ -11,6 +11,7 @@
 #include "hw/s390x/s390_flic.h"
 #include "hw/s390x/s390-pci-inst.h"
 #include "hw/s390x/s390-virtio-hcall.h"
+#include "hw/s390x/s390-virtio-ccw.h"
 #include "hw/s390x/sclp.h"
 #include "hw/s390x/storage-keys.h"
 #include "libtcg.h"
@@ -37,6 +38,8 @@ static void init_cpu()
 }
 
 TraceEvent _TRACE_GUEST_MEM_BEFORE_EXEC_EVENT;
+char _TRACE_QEMU_S390_AIRQ_SUPPRESSED_DSTATE;
+char _TRACE_QEMU_S390_SUPPRESS_AIRQ_DSTATE;
 
 bool address_space_access_valid(AddressSpace *as, hwaddr addr, int len,
                                 bool is_write, MemTxAttrs attrs)
@@ -114,6 +117,19 @@ int cpu_watchpoint_insert(CPUState *cpu, vaddr addr, vaddr len,
 
 void cpu_watchpoint_remove_all(CPUState *cpu, int mask)
 {
+}
+
+struct CPUTailQ cpus = QTAILQ_HEAD_INITIALIZER(cpus);
+
+__attribute__((constructor))
+void cpus_init()
+{
+    QTAILQ_INSERT_TAIL(&cpus, &cpu.parent_obj, node);
+}
+
+bool css_migration_enabled(void)
+{
+    abort();
 }
 
 void do_stop_interrupt(CPUS390XState *env)
@@ -368,6 +384,25 @@ ObjectClass *object_get_class(Object *obj)
     abort();
 }
 
+void object_property_add_child(Object *obj, const char *name,
+                               Object *child, Error **errp)
+{
+    abort();
+}
+
+static QEMUS390FLICState flic;
+
+Object *object_resolve_path_type(const char *path, const char *typename,
+                                 bool *ambiguous)
+{
+    if (strcmp(path, "") == 0 && strcmp(typename, "s390-flic") == 0) {
+        if (ambiguous)
+            *ambiguous = false;
+        return &flic.parent_obj.parent_obj.parent_obj.parent_obj;
+    }
+    abort();
+}
+
 int pcilg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 {
     abort();
@@ -386,6 +421,11 @@ int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 
 void probe_write(CPUArchState *env, target_ulong addr, int size, int mmu_idx,
                  uintptr_t retaddr)
+{
+    abort();
+}
+
+DeviceState *qdev_create(BusState *bus, const char *name)
 {
     abort();
 }
@@ -412,6 +452,13 @@ Object *qdev_get_machine(void)
     return &ms.parent_obj;
 }
 
+void qdev_init_nofail(DeviceState *dev)
+{
+    abort();
+}
+
+const PropertyInfo qdev_prop_uint32;
+
 int64_t qemu_clock_get_ns(QEMUClockType type)
 {
     abort();
@@ -420,51 +467,24 @@ int64_t qemu_clock_get_ns(QEMUClockType type)
 int qemu_loglevel;
 
 // We are single-threaded, so locks are not needed.
+static __thread bool iothread_locked = true;
+
+bool qemu_mutex_iothread_locked(void)
+{
+    return iothread_locked;
+}
+
 void qemu_mutex_lock_iothread(void)
 {
+    iothread_locked = true;
 }
 
 void qemu_mutex_unlock_iothread(void)
 {
+    iothread_locked = false;
 }
 
 const char *qemu_name = "qemu";
-
-QEMUS390FlicIO *qemu_s390_flic_dequeue_io(QEMUS390FLICState *flic,
-                                          uint64_t cr6)
-{
-    abort();
-}
-
-void qemu_s390_flic_dequeue_crw_mchk(QEMUS390FLICState *flic)
-{
-    abort();
-}
-
-uint32_t qemu_s390_flic_dequeue_service(QEMUS390FLICState *flic)
-{
-    abort();
-}
-
-bool qemu_s390_flic_has_any(QEMUS390FLICState *flic)
-{
-    return false;
-}
-
-bool qemu_s390_flic_has_crw_mchk(QEMUS390FLICState *flic)
-{
-    return false;
-}
-
-bool qemu_s390_flic_has_io(QEMUS390FLICState *fs, uint64_t cr6)
-{
-    return false;
-}
-
-bool qemu_s390_flic_has_service(QEMUS390FLICState *flic)
-{
-    return false;
-}
 
 int qemu_strtou64(const char *nptr, const char **endptr, int base,
                   uint64_t *result)
@@ -485,6 +505,10 @@ void qemu_system_shutdown_request(ShutdownCause reason)
 QemuUUID qemu_uuid;
 
 ram_addr_t ram_size = RAM_SIZE;
+
+void register_module_init(void (*fn)(void), module_init_type type)
+{
+}
 
 int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 {
@@ -525,21 +549,6 @@ int s390_cpu_virt_mem_rw(S390CPU *cpu, vaddr laddr, uint8_t ar, void *hostbuf,
 void s390_get_feat_block(S390FeatType type, uint8_t *data)
 {
     abort();
-}
-
-S390FLICState *s390_get_flic(void)
-{
-    return NULL;
-}
-
-S390FLICStateClass *s390_get_flic_class(S390FLICState *fs)
-{
-    abort();
-}
-
-QEMUS390FLICState *s390_get_qemu_flic(S390FLICState *fs)
-{
-    return QEMU_S390_FLIC(fs);
 }
 
 S390SKeysState *s390_get_skeys_device(void)
@@ -619,3 +628,14 @@ void trace_enable_events(const char *line_buf)
 }
 
 int trace_events_enabled_count;
+
+Type type_register_static(const TypeInfo *info)
+{
+    abort();
+}
+
+const VMStateInfo vmstate_info_uint32;
+
+const VMStateInfo vmstate_info_uint64;
+
+const VMStateInfo vmstate_info_uint8;

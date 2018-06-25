@@ -39,8 +39,7 @@ BIN2LLVM=$(BUILD)/bin2llvm
 
 RUNTIME_OBJECTS=\
 	$(BUILD)/qemu/fpu/softfloat.bc \
-	$(BUILD)/src/runtime.bc \
-	$(BUILD)/src/runtime-stubs.bc \
+	$(BUILD)/qemu/hw/intc/s390_flic.bc \
 	$(BUILD)/qemu/target/s390x/cc_helper.bc \
 	$(BUILD)/qemu/target/s390x/crypto_helper.bc \
 	$(BUILD)/qemu/target/s390x/fpu_helper.bc \
@@ -52,6 +51,8 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/qemu/target/s390x/misc_helper.bc \
 	$(BUILD)/qemu/tcg/tcg-common.bc \
 	$(BUILD)/qemu/util/log.bc \
+	$(BUILD)/src/runtime.bc \
+	$(BUILD)/src/runtime-stubs.bc \
 	$(MODULES_RUNTIME_OBJECTS)
 
 all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
@@ -96,7 +97,7 @@ CFLAGS_RUNTIME=\
 
 $(BUILD)/%.bc: %.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
-		clang -c -emit-llvm $(CFLAGS_RUNTIME) $< -o $@
+		clang -c -emit-llvm $(CFLAGS_RUNTIME) -I$(QEMU_BUILD)/$(shell dirname $< | cut -d/ -f2-) $< -o $@
 
 $(BIN2LLVM): $(BIN2LLVM_OBJS)
 		mkdir -p $(shell dirname $@)
