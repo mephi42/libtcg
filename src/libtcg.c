@@ -81,11 +81,8 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:4572
     qemu_system_reset(SHUTDOWN_CAUSE_NONE);
 
-    // assume PER is irrelevant
-    cpu = S390_CPU(first_cpu);
-    cpu->env.psw.mask &= ~ PSW_MASK_PER;
-
     // make sure saved state has 0 icount_decr
+    cpu = S390_CPU(first_cpu);
     cpu->parent_obj.icount_decr.u32 = 0;
 
     return &cpu->parent_obj;
@@ -105,6 +102,8 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
     }
     // translate-all.c:1272
     cpu_get_tb_cpu_state(&S390_CPU(cpu)->env, &tb->pc, &tb->cs_base, &tb->flags);
+    // assume PER is irrelevant
+    tb->flags &= ~FLAG_MASK_PER;
     // translate-all.c:1285
     tcg_func_start(tcg_ctx);
     // translate-all.c:1288
