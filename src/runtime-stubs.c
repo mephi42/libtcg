@@ -370,7 +370,7 @@ ObjectClass *object_class_dynamic_cast_assert(ObjectClass *klass,
                                               const char *file, int line,
                                               const char *func)
 {
-    abort();
+    return klass;
 }
 
 Object *object_dynamic_cast_assert(Object *obj, const char *typename,
@@ -390,12 +390,13 @@ void object_property_add_child(Object *obj, const char *name,
     abort();
 }
 
+static S390FLICStateClass flic_class;
 static QEMUS390FLICState flic;
 
 Object *object_resolve_path_type(const char *path, const char *typename,
                                  bool *ambiguous)
 {
-    if (strcmp(path, "") == 0 && strcmp(typename, "s390-flic") == 0) {
+    if (strcmp(path, "") == 0 && strcmp(typename, TYPE_S390_FLIC_COMMON) == 0) {
         if (ambiguous)
             *ambiguous = false;
         return &flic.parent_obj.parent_obj.parent_obj.parent_obj;
@@ -508,6 +509,7 @@ ram_addr_t ram_size = RAM_SIZE;
 
 void register_module_init(void (*fn)(void), module_init_type type)
 {
+    fn();
 }
 
 int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
@@ -631,7 +633,13 @@ int trace_events_enabled_count;
 
 Type type_register_static(const TypeInfo *info)
 {
-    abort();
+    if (info->name && strcmp(info->name, TYPE_QEMU_S390_FLIC) == 0) {
+        if (info->class_init)
+            info->class_init(&flic_class.parent_class.parent_class, NULL);
+        if (info->instance_init)
+            info->instance_init(&flic.parent_obj.parent_obj.parent_obj.parent_obj);
+    }
+    return NULL;
 }
 
 const VMStateInfo vmstate_info_uint32;
