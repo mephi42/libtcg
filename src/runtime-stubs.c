@@ -536,7 +536,10 @@ unsigned int s390_cpu_halt(S390CPU *cpu)
     qemu_mutex_unlock_iothread();
 
     if (r2) {
-        fprintf(stderr, "R2=0x%"PRIx64"\n", r2);
+        fprintf(stderr, "PSW Mask=0x%.16"PRIx64
+                " PSW Addr=0x%.16"PRIx64
+                " R2=0x%.16"PRIx64"\n",
+                cpu->env.psw.mask, cpu->env.psw.addr, r2);
         exit(EXIT_FAILURE);
     } else
         exit(EXIT_SUCCESS);
