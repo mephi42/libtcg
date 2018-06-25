@@ -114,7 +114,6 @@ int cpu_watchpoint_insert(CPUState *cpu, vaddr addr, vaddr len,
 
 void cpu_watchpoint_remove_all(CPUState *cpu, int mask)
 {
-    abort();
 }
 
 void do_stop_interrupt(CPUS390XState *env)
