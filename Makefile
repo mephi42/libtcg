@@ -3,6 +3,7 @@ include env
 
 PKGS=glib-2.0 pixman-1 zlib
 LLVM_COMPONENTS=analysis bitwriter core
+LLVM_TARGETS=SystemZ;X86
 QEMU=qemu
 QEMU_BUILD=qemu-build
 LLVM=llvm
@@ -165,7 +166,7 @@ build-qemu:
 .PHONY: configure-llvm
 configure-llvm:
 		mkdir -p $(LLVM_BUILD)
-		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off -DLLVM_TARGETS_TO_BUILD= ../$(LLVM)
+		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off -DLLVM_TARGETS_TO_BUILD="$(LLVM_TARGETS)" ../$(LLVM)
 
 .PHONY: build-llvm
 build-llvm:
