@@ -35,6 +35,16 @@ LDFLAGS=\
 	$(shell pkg-config --libs $(PKGS)) \
 	-framework IOKit
 
+TESTS=\
+	test-minimal \
+	test-pgm \
+	test-xc0 \
+	test-l \
+	test-st \
+	test-balr \
+	test-basr \
+	test-clc
+
 BIN2LLVM=$(BUILD)/bin2llvm
 
 RUNTIME_OBJECTS=\
@@ -134,7 +144,7 @@ test-%: build/test/%
 		$<
 
 .PHONY: test
-test: test-minimal test-pgm test-xc0 test-l test-st test-balr test-basr
+test: $(TESTS)
 
 .PHONY: configure-qemu
 configure-qemu:
