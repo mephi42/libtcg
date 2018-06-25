@@ -69,7 +69,12 @@ GuestPanicInformation *cpu_get_crash_info(CPUState *cpu)
     abort();
 }
 
-CPUInterruptHandler cpu_interrupt_handler;
+static void handle_interrupt(CPUState *cpu, int mask)
+{
+    cpu->interrupt_request |= mask;
+}
+
+CPUInterruptHandler cpu_interrupt_handler = handle_interrupt;
 
 void cpu_loop_exit(CPUState *cpu)
 {
@@ -381,7 +386,7 @@ Object *object_dynamic_cast_assert(Object *obj, const char *typename,
 
 ObjectClass *object_get_class(Object *obj)
 {
-    abort();
+    return obj->class;
 }
 
 void object_property_add_child(Object *obj, const char *name,
@@ -520,6 +525,15 @@ int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 unsigned int s390_cpu_halt(S390CPU *cpu)
 {
     uint64_t r2 = cpu->env.regs[2];
+    bool has_service;
+
+    qemu_mutex_lock_iothread();
+    has_service = qemu_s390_flic_has_service(&flic);
+    if ((cpu->env.psw.mask & PSW_MASK_EXT) && has_service) {
+        cpu->parent_obj.exception_index = EXCP_EXT;
+        cpu_loop_exit(&cpu->parent_obj);
+    }
+    qemu_mutex_unlock_iothread();
 
     if (r2) {
         fprintf(stderr, "R2=0x%"PRIx64"\n", r2);
@@ -577,8 +591,13 @@ int sclp_service_call(CPUS390XState *env, uint64_t sccb_addr, uint32_t code)
     size_t i;
 
     for (i = 0; i < n_sclp_handlers; ++i)
-        if ((code & sclp_handlers[i].mask) == sclp_handlers[i].value)
-            return sclp_handlers[i].f(env, sccb, code);
+        if ((code & sclp_handlers[i].mask) == sclp_handlers[i].value) {
+            int result = sclp_handlers[i].f(env, sccb, code);
+
+            // sclp.c:237
+            s390_sclp_extint((uint32_t)sccb & ~3);
+            return result;
+        }
 
     abort();
 }
@@ -638,6 +657,8 @@ Type type_register_static(const TypeInfo *info)
             info->class_init(&flic_class.parent_class.parent_class, NULL);
         if (info->instance_init)
             info->instance_init(&flic.parent_obj.parent_obj.parent_obj.parent_obj);
+        flic.parent_obj.parent_obj.parent_obj.parent_obj.class =
+                &flic_class.parent_class.parent_class;
     }
     return NULL;
 }
