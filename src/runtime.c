@@ -65,6 +65,13 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             log_mask = argv[i];
+        } else if (strcmp(argv[i], "-cpu") == 0) {
+            i++;
+            if (i >= argc) {
+                fprintf(stderr, "%s: -cpu: requires an argument\n", argv[0]);
+                return EXIT_FAILURE;
+            }
+            *(uint16_t*)&S390_CPU(&cpu)->model->def->type = strtol(argv[i], NULL, 16);
         } else {
             argv[j] = argv[i];
             j++;

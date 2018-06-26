@@ -160,8 +160,29 @@ void handle_diag_308(CPUS390XState *env, uint64_t r1, uint64_t r3,
     abort();
 }
 
+__attribute__((noreturn))
+static void stop(CPUS390XState *env)
+{
+    uint64_t r2 = env->regs[2];
+
+    fprintf(stderr, "STOP: PSW Mask=0x%.16"PRIx64
+            " PSW Addr=0x%.16"PRIx64"\n",env->psw.mask, env->psw.addr);
+    if (r2) {
+        fprintf(stderr, "R2=0x%.16"PRIx64"\n", r2);
+        exit(EXIT_FAILURE);
+    } else
+        exit(EXIT_SUCCESS);
+}
+
+static struct MachineState ms;
+
 int handle_sigp(CPUS390XState *env, uint8_t order, uint64_t r1, uint64_t r3)
 {
+    if (order == SIGP_STOP) {
+        S390CPU *dest_cpu = S390_CPU(ms.possible_cpus->cpus[env->regs[r3] & 0xffff].cpu);
+        if (dest_cpu == s390_env_get_cpu(env))
+            stop(env);
+    }
     abort();
 }
 
@@ -199,6 +220,17 @@ void helper_atomic_sto_be_mmu(CPUArchState *env, target_ulong addr, Int128 val,
 }
 
 // softmmu_template.h
+static inline void update_tlb(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi)
+{
+    // cpu_ldst.h:406
+    int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+    CPUTLBEntry *tlbentry = &env->tlb_table[get_mmuidx(oi)][index];
+
+    tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code = addr;
+    tlbentry->addend = (uintptr_t)&memory;
+}
+
+
 uint32_t helper_be_ldl_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
 {
@@ -267,12 +299,7 @@ tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
 void helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
                         TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    // cpu_ldst.h:406
-    int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
-    CPUTLBEntry *tlbentry = &env->tlb_table[get_mmuidx(oi)][index];
-
-    tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code = addr;
-    tlbentry->addend = (uintptr_t)&memory;
+    update_tlb(env, addr, oi);
     memory[addr] = (char)val;
 }
 
@@ -437,7 +464,6 @@ DeviceState *qdev_create(BusState *bus, const char *name)
 }
 
 static char possible_cpus[sizeof(CPUArchIdList) + sizeof(CPUArchId)];
-static struct MachineState ms;
 
 __attribute__((constructor))
 static void init_ms()
@@ -524,7 +550,6 @@ int rpcit_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 
 unsigned int s390_cpu_halt(S390CPU *cpu)
 {
-    uint64_t r2 = cpu->env.regs[2];
     bool has_service;
 
     qemu_mutex_lock_iothread();
@@ -535,14 +560,7 @@ unsigned int s390_cpu_halt(S390CPU *cpu)
     }
     qemu_mutex_unlock_iothread();
 
-    if (r2) {
-        fprintf(stderr, "PSW Mask=0x%.16"PRIx64
-                " PSW Addr=0x%.16"PRIx64
-                " R2=0x%.16"PRIx64"\n",
-                cpu->env.psw.mask, cpu->env.psw.addr, r2);
-        exit(EXIT_FAILURE);
-    } else
-        exit(EXIT_SUCCESS);
+    stop(&cpu->env);
 }
 
 void s390_cpu_unhalt(S390CPU *cpu)
