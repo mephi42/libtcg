@@ -27,7 +27,7 @@ static inline void dispatch_loop(int flags)
     sigsetjmp(cpu.jmp_env, 0);
     while (true) {
         if (flags & FLAG_CPU_DUMP_STATE)
-            s390_cpu_dump_state(&cpu, stderr, fprintf, 0);
+            s390_cpu_dump_state(&cpu, qemu_logfile, fprintf, 0);
         if (cpu.exception_index < 0)
             dispatch();
         else
@@ -35,9 +35,12 @@ static inline void dispatch_loop(int flags)
     }
 }
 
-static void configure_logging(const char *log_mask)
+static void configure_logging(const char *log_file, const char *log_mask)
 {
-    // vl.c:4035
+    // vl.c:4031
+    if (log_file)
+        qemu_set_log_filename(log_file, NULL);
+
     if (log_mask) {
         int mask = qemu_str_to_log_mask(log_mask);
 
@@ -56,6 +59,7 @@ int main(int argc, char **argv)
     int i;
     int j;
     int flags = 0;
+    const char *log_file = NULL;
     const char *log_mask = NULL;
 
     for (i = 1, j = 1; i < argc; i++) {
@@ -66,6 +70,13 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             log_mask = argv[i];
+        } else if (strcmp(argv[i], "-D") == 0) {
+            i++;
+            if (i >= argc) {
+                fprintf(stderr, "%s: -D: requires an argument\n", argv[0]);
+                return EXIT_FAILURE;
+            }
+            log_file = argv[i];
         } else if (strcmp(argv[i], "-cpu") == 0) {
             i++;
             if (i >= argc) {
@@ -82,7 +93,7 @@ int main(int argc, char **argv)
     argc = j;
     argv[argc] = NULL;
 
-    configure_logging(log_mask);
+    configure_logging(log_file, log_mask);
     if (qemu_loglevel & CPU_LOG_TB_CPU)
         flags |= FLAG_CPU_DUMP_STATE;
 
