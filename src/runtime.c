@@ -13,6 +13,7 @@
 #include "target/s390x/internal.h"
 
 extern struct CPUState cpu;
+extern struct S390CPUDef cpu_def;
 extern char memory[];
 extern const char memory_init[];
 extern const int32_t memory_init_size;
@@ -71,7 +72,8 @@ int main(int argc, char **argv)
                 fprintf(stderr, "%s: -cpu: requires an argument\n", argv[0]);
                 return EXIT_FAILURE;
             }
-            *(uint16_t*)&S390_CPU(&cpu)->model->def->type = strtol(argv[i], NULL, 16);
+            cpu_def.type = strtol(argv[i], NULL, 16);
+            S390_CPU(&cpu)->env.cpuid = s390_cpuid_from_cpu_model(S390_CPU(&cpu)->model);
         } else {
             argv[j] = argv[i];
             j++;
