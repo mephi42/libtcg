@@ -13,6 +13,7 @@
 #include "internal.h"
 #include "hw/loader.h"
 #include "tcg/tcg.h"
+#include "disas/disas.h"
 
 // vl.c:274
 static QemuOptsList qemu_machine_opts = {
@@ -71,6 +72,7 @@ struct CPUState *libtcg_init(char *path)
     current_machine->kernel_cmdline = "";
     // vl.c:4461
     current_machine->ram_size = ram_size;
+    current_machine->maxram_size = ram_size;
     // vl.c:4467
     current_machine->cpu_type = S390_CPU_TYPE_NAME("qemu");
     // vl.c:4477
@@ -90,8 +92,10 @@ struct CPUState *libtcg_init(char *path)
 
 static __thread struct TranslationBlock *tb;
 
-struct TCGContext *libtcg_gen(struct CPUState *cpu)
+struct TCGContext *libtcg_gen(struct CPUState *cpu, char *disasm, size_t disasm_len)
 {
+    FILE *fdisasm;
+
     // translate-all.c:1250
     if (!tb) {
         tb = tcg_tb_alloc(tcg_ctx);
@@ -110,6 +114,9 @@ struct TCGContext *libtcg_gen(struct CPUState *cpu)
     gen_intermediate_code(cpu, tb);
     if (tb->size == 0)
         return NULL;
-    else
-        return tcg_ctx;
+    fdisasm = fmemopen(disasm, disasm_len, "w");
+    target_disas(fdisasm, cpu, tb->pc, tb->size);
+    disasm[disasm_len - 1] = 0;
+    fclose(fdisasm);
+    return tcg_ctx;
 }

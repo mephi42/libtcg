@@ -76,26 +76,49 @@ static LLVMIntPredicate llvm_int_predicate(TCGCond cond)
     }
 }
 
+static LLVMValueRef llvm_pc(struct llvm *llvm, struct CPUState *cpu)
+{
+    LLVMValueRef pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
+
+    if (S390_CPU(cpu)->env.psw.mask & PSW_MASK_32)
+        pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0x7fffffff, false), llvm_unnamed);
+    return pc;
+}
+
 static void llvm_init_dispatch(struct llvm *llvm, struct CPUState *cpu)
 {
     LLVMTypeRef signature = LLVMFunctionType(LLVMVoidType(), NULL, 0, false);
     LLVMBasicBlockRef bb;
-    LLVMBasicBlockRef die;
-    LLVMValueRef pc;
+    LLVMBasicBlockRef not_found;
 
     llvm->dispatch = LLVMAddFunction(llvm->module, "dispatch", signature);
     bb = LLVMAppendBasicBlock(llvm->dispatch, "entry");
-    die = LLVMAppendBasicBlock(llvm->dispatch, "die");
+    not_found = LLVMAppendBasicBlock(llvm->dispatch, "not_found");
 
-    LLVMPositionBuilderAtEnd(llvm->builder, die);
+    LLVMPositionBuilderAtEnd(llvm->builder, not_found);
     LLVMBuildTrap(llvm->builder);
     LLVMBuildUnreachable(llvm->builder);
 
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
-    pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
-    if (S390_CPU(cpu)->env.psw.mask & PSW_MASK_32)
-        pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0x7fffffff, false), llvm_unnamed);
-    llvm->switch_pc = LLVMBuildSwitch(llvm->builder, pc, die, 10);
+    llvm->switch_pc = LLVMBuildSwitch(llvm->builder, llvm_pc(llvm, cpu), not_found, 10);
+}
+
+static void llvm_init_disasm(struct llvm *llvm, struct CPUState *cpu)
+{
+    LLVMTypeRef return_type = LLVMPointerType(LLVMInt8Type(), 0);
+    LLVMTypeRef signature = LLVMFunctionType(return_type, NULL, 0, false);
+    LLVMBasicBlockRef bb;
+    LLVMBasicBlockRef not_found;
+
+    llvm->disasm = LLVMAddFunction(llvm->module, "disasm", signature);
+    bb = LLVMAppendBasicBlock(llvm->disasm, "entry");
+    not_found = LLVMAppendBasicBlock(llvm->disasm, "not_found");
+
+    LLVMPositionBuilderAtEnd(llvm->builder, not_found);
+    LLVMBuildRet(llvm->builder, LLVMConstNull(return_type));
+
+    LLVMPositionBuilderAtEnd(llvm->builder, bb);
+    llvm->disasm_switch = LLVMBuildSwitch(llvm->builder, llvm_pc(llvm, cpu), not_found, 10);
 }
 
 static void llvm_init_globals(struct llvm *llvm, struct CPUState *cpu)
@@ -138,18 +161,32 @@ void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
     llvm->image_size = get_image_size(path);
     llvm_init_globals(llvm, cpu);
     llvm_init_dispatch(llvm, cpu);
+    llvm_init_disasm(llvm, cpu);
 }
 
-static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function)
+static void llvm_register_pc(struct llvm *llvm, uint64_t pc, LLVMValueRef function, LLVMValueRef disasm)
 {
-    LLVMBasicBlockRef bb = LLVMAppendBasicBlock(llvm->dispatch, llvm_unnamed);
+    LLVMBasicBlockRef bb;
     LLVMValueRef call;
+    LLVMValueRef disasm_indices[] = {
+        LLVMConstInt(LLVMInt32Type(), 0, false),
+        LLVMConstInt(LLVMInt32Type(), 0, false),
+    };
+    LLVMValueRef disasm_ptr;
+    LLVMValueRef llvm_pc = LLVMConstInt(LLVMInt64Type(), pc, false);
 
+    bb = LLVMAppendBasicBlock(llvm->dispatch, llvm_unnamed);
     LLVMPositionBuilderAtEnd(llvm->builder, bb);
     call = LLVMBuildCall(llvm->builder, function, NULL, 0, llvm_unnamed);
     LLVMSetTailCall(call, true);
     LLVMBuildRetVoid(llvm->builder);
-    LLVMAddCase(llvm->switch_pc, LLVMConstInt(LLVMInt64Type(), pc, false), bb);
+    LLVMAddCase(llvm->switch_pc, llvm_pc, bb);
+
+    bb = LLVMAppendBasicBlock(llvm->disasm, llvm_unnamed);
+    LLVMPositionBuilderAtEnd(llvm->builder, bb);
+    disasm_ptr = LLVMBuildGEP(llvm->builder, disasm, disasm_indices, ARRAY_SIZE(disasm_indices), llvm_unnamed);
+    LLVMBuildRet(llvm->builder, disasm_ptr);
+    LLVMAddCase(llvm->disasm_switch, llvm_pc, bb);
 }
 
 #define easy_snprintf(str, format, ...) str[snprintf(str, sizeof(str) - 1, format, __VA_ARGS__)] = 0
@@ -298,16 +335,23 @@ typedef struct TCGHelperInfo {
 // tcg.c:668
 extern GHashTable *helper_table;
 
-LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc)
+LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc, const char *disasm)
 {
     char name[32];
     LLVMValueRef llvm_function;
     LLVMBasicBlockRef llvm_bb;
     struct TCGOp *op;
     bool insn_started = false;
+    size_t disasm_len = strlen(disasm);
+    LLVMValueRef llvm_disasm;
 
     memset(&llvm->labels, 0, sizeof(llvm->labels));
     memset(&llvm->locals, 0, sizeof(llvm->locals));
+
+    easy_snprintf(name, "disasm_0x%"PRIx64, pc);
+    llvm_disasm = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), disasm_len + 1), name);
+    LLVMSetLinkage(llvm_disasm, LLVMInternalLinkage);
+    LLVMSetInitializer(llvm_disasm, LLVMConstString(disasm, disasm_len + 1, true));
 
     easy_snprintf(name, "pc_0x%"PRIx64, pc);
     llvm_function = LLVMAddFunction(llvm->module, name, LLVMFunctionType(LLVMVoidType(), NULL, 0, false));
@@ -649,6 +693,6 @@ LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t p
             return NULL;
         }
     }
-    llvm_register_pc(llvm, pc, llvm_function);
+    llvm_register_pc(llvm, pc, llvm_function, llvm_disasm);
     return llvm_function;
 }

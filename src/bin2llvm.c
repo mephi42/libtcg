@@ -19,6 +19,7 @@ int main(int argc, char **argv)
     int pc;
     int debug_pc = -1;
     bool verbose = debug_pc >= 0;
+    char disasm[80];
 
     if (argc != 3) {
         fprintf(stderr, "Usage: %s in-file out-file\n", argv[0]);
@@ -47,12 +48,14 @@ int main(int argc, char **argv)
 
         fprintf(stderr, "pc = 0x%x\n", pc);
         s390_cpu->env.psw.addr = pc;
-        s = libtcg_gen(cpu);
+        s = libtcg_gen(cpu, disasm, sizeof(disasm));
         if (!s)
             continue;
-        if (verbose)
+        if (verbose) {
+            fprintf(stderr, "%s", disasm);
             tcg_dump_ops(s);
-        llvm_function = llvm_convert_tb(&llvm, s, pc);
+        }
+        llvm_function = llvm_convert_tb(&llvm, s, pc, disasm);
         if (!llvm_function)
             abort();
         if (verbose)

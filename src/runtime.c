@@ -18,14 +18,18 @@ extern char memory[];
 extern const char memory_init[];
 extern const int32_t memory_init_size;
 extern void dispatch();
+extern const char *disasm();
 
 #define FLAG_CPU_DUMP_STATE 0x1
+#define FLAG_CPU_DUMP_DISASM 0x2
 
 __attribute__((always_inline))
 static inline void dispatch_loop(int flags)
 {
     sigsetjmp(cpu.jmp_env, 0);
     while (true) {
+        if (flags & FLAG_CPU_DUMP_DISASM)
+            qemu_log("%s", disasm());
         if (flags & FLAG_CPU_DUMP_STATE)
             s390_cpu_dump_state(&cpu, qemu_logfile, fprintf, 0);
         if (cpu.exception_index < 0)
@@ -85,6 +89,8 @@ int main(int argc, char **argv)
             }
             cpu_def.type = strtol(argv[i], NULL, 16);
             S390_CPU(&cpu)->env.cpuid = s390_cpuid_from_cpu_model(S390_CPU(&cpu)->model);
+        } else if (strcmp(argv[i], "-disasm") == 0) {
+            flags |= FLAG_CPU_DUMP_DISASM;
         } else {
             argv[j] = argv[i];
             j++;
@@ -94,7 +100,7 @@ int main(int argc, char **argv)
     argv[argc] = NULL;
 
     configure_logging(log_file, log_mask);
-    if (qemu_loglevel & CPU_LOG_TB_CPU)
+    if (qemu_loglevel_mask(CPU_LOG_TB_CPU))
         flags |= FLAG_CPU_DUMP_STATE;
 
     memcpy(memory, memory_init, memory_init_size);
@@ -106,6 +112,8 @@ int main(int argc, char **argv)
         break
     DISPATCH_LOOP_CASE(0);
     DISPATCH_LOOP_CASE(1);
+    DISPATCH_LOOP_CASE(2);
+    DISPATCH_LOOP_CASE(3);
 #undef DISPATCH_LOOP_CASE
     default:
         abort();

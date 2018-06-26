@@ -24,9 +24,11 @@ struct llvm {
     int image_size;
     LLVMValueRef dispatch;
     LLVMValueRef switch_pc;
+    LLVMValueRef disasm;
+    LLVMValueRef disasm_switch;
 };
 
 void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path);
-LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc);
+LLVMValueRef llvm_convert_tb(struct llvm *llvm, struct TCGContext *s, uint64_t pc, const char *disasm);
 
 #endif
