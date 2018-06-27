@@ -49,6 +49,7 @@ TESTS=\
 BIN2LLVM=$(BUILD)/bin2llvm
 
 RUNTIME_OBJECTS=\
+	$(BUILD)/qemu/accel/tcg/tcg-runtime.bc \
 	$(BUILD)/qemu/fpu/softfloat.bc \
 	$(BUILD)/qemu/hw/intc/s390_flic.bc \
 	$(BUILD)/qemu/target/s390x/cc_helper.bc \

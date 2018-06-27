@@ -5,6 +5,7 @@
 #include "qemu/osdep.h"
 #include "target/s390x/cpu.h"
 
+#include "disas/disas.h"
 #include "exec/exec-all.h"
 #include "exec/helper-proto.h"
 #include "hw/boards.h"
@@ -377,6 +378,11 @@ bool is_daemonized()
     return false;
 }
 
+const char *lookup_symbol(target_ulong orig_addr)
+{
+    abort();
+}
+
 unsigned int max_cpus = 1;
 
 int mmu_translate(CPUS390XState *env, target_ulong vaddr, int rw, uint64_t asc,
@@ -435,6 +441,8 @@ Object *object_resolve_path_type(const char *path, const char *typename,
     }
     abort();
 }
+
+bool parallel_cpus;
 
 int pcilg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 {
@@ -634,7 +642,16 @@ int stpcifc_service_call(S390CPU *cpu, uint8_t r1, uint64_t fiba, uint8_t ar,
     abort();
 }
 
+TranslationBlock *tb_htable_lookup(CPUState *cpu, target_ulong pc,
+                                   target_ulong cs_base, uint32_t flags,
+                                   uint32_t cf_mask)
+{
+    abort();
+}
+
 bool tcg_allowed = true;
+
+__thread TCGContext *tcg_ctx;
 
 void timer_mod(QEMUTimer *ts, int64_t expire_timer)
 {
@@ -683,6 +700,8 @@ Type type_register_static(const TypeInfo *info)
     }
     return NULL;
 }
+
+int use_icount;
 
 const VMStateInfo vmstate_info_uint32;
 
