@@ -33,3 +33,7 @@ LLVMValueRef LLVMBuildTrap(LLVMBuilderRef B)
 
     return wrap(unwrap(B)->CreateCall(TheFn, {}));
 }
+
+LLVMTypeRef LLVMHugeArrayType(LLVMTypeRef ElementType, uint64_t ElementCount) {
+  return wrap(ArrayType::get(unwrap(ElementType), ElementCount));
+}

@@ -140,7 +140,7 @@ static void llvm_init_globals(struct llvm *llvm, struct CPUState *cpu)
 
 void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
 {
-    LLVMTypeRef memory_type = LLVMArrayType(LLVMInt8Type(), RAM_SIZE);
+    LLVMTypeRef memory_type = LLVMHugeArrayType(LLVMInt8Type(), RAM_SIZE);
     LLVMValueRef llvm_env_offsets[] = {
         LLVMConstInt(LLVMInt32Type(), 0, false),
         LLVMConstInt(LLVMInt32Type(), ENV_OFFSET, false),

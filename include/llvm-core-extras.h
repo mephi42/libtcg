@@ -18,6 +18,8 @@ LLVMValueRef LLVMBuildBSwap(LLVMBuilderRef B, LLVMValueRef V,
 
 LLVMValueRef LLVMBuildTrap(LLVMBuilderRef B);
 
+LLVMTypeRef LLVMHugeArrayType(LLVMTypeRef ElementType, uint64_t ElementCount);
+
 #ifdef __cplusplus
 }
 #endif

@@ -7,7 +7,7 @@ struct CPUState;
 struct TCGContext;
 
 static const char *machine_type = "s390-ccw-virtio-3.0-machine";
-#define RAM_SIZE (1024 * 1024 * 1024)
+#define RAM_SIZE (4 * 1024 * 1024 * 1024ULL)
 
 struct CPUState *libtcg_init(char *path);
 struct TCGContext *libtcg_gen(struct CPUState *cpu, char *disasm, size_t disasm_len);
