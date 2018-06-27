@@ -44,7 +44,8 @@ TESTS=\
 	test-balr \
 	test-basr \
 	test-clc \
-	test-pack
+	test-pack \
+	test-cvb
 
 BIN2LLVM=$(BUILD)/bin2llvm
 
