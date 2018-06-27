@@ -7,10 +7,10 @@
 .Lhalt_psw:
     .quad PSW_MASK_WAIT,0
 .Ldata:
-    .byte 0xf1,0xf2,0xf3,0xc4
+    .byte 0xaa,0xaa,0xf1,0xf2,0xf3,0xc4,0xaa,0xaa
 .Lx:
-    xgr 2,2
-    pack .Ldata(4),.Ldata(4)
-    l 2,.Ldata
-    xilf 2,0x0001234c
+    pack .Ldata+2(4),.Ldata+2(4)
+    lg 2,.Ldata
+    xihf 2,0xaaaa0001
+    xilf 2,0x234caaaa
     lpswe .Lhalt_psw
