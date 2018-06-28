@@ -1,4 +1,6 @@
-    make configure-qemu configure-llvm
+    git submodule init
+    git submodule update
+    make configure-qemu configure-llvm -j8
     make build-qemu build-llvm -j8
-    make
-    build/bin2llvm linux/arch/s390/boot/image
+    make all test -j8
+    build/$(uname -s)-$(uname -m)/bin2llvm image image.bc

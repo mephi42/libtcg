@@ -66,7 +66,7 @@ struct CPUState *libtcg_init(char *path)
     // vl.c:4269
     migration_object_init();
     // vl.c:4279
-    bios_name = "qemu-build/pc-bios/s390-ccw.img";
+    bios_name = "qemu/pc-bios/s390-ccw.img";
     // vl.c:4302
     current_machine->kernel_filename = path;
     current_machine->kernel_cmdline = "";
