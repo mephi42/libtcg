@@ -28,13 +28,13 @@ static inline void dispatch_loop(int flags)
 {
     sigsetjmp(cpu.jmp_env, 0);
     while (true) {
-        if (flags & FLAG_CPU_DUMP_DISASM)
-            qemu_log("%s", disasm());
-        if (flags & FLAG_CPU_DUMP_STATE)
-            s390_cpu_dump_state(&cpu, qemu_logfile, fprintf, 0);
-        if (cpu.exception_index < 0)
+        if (cpu.exception_index < 0) {
+            if (flags & FLAG_CPU_DUMP_DISASM)
+                qemu_log("%s", disasm());
+            if (flags & FLAG_CPU_DUMP_STATE)
+                s390_cpu_dump_state(&cpu, qemu_logfile, fprintf, 0);
             dispatch();
-        else
+        } else
             s390_cpu_do_interrupt(&cpu);
     }
 }
