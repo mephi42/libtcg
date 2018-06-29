@@ -140,7 +140,6 @@ static void llvm_init_globals(struct llvm *llvm, struct CPUState *cpu)
 
 void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
 {
-    LLVMTypeRef memory_type = LLVMHugeArrayType(LLVMInt8Type(), RAM_SIZE);
     LLVMValueRef llvm_env_offsets[] = {
         LLVMConstInt(LLVMInt32Type(), 0, false),
         LLVMConstInt(LLVMInt32Type(), ENV_OFFSET, false),
@@ -150,8 +149,7 @@ void llvm_init(struct llvm *llvm, struct CPUState *cpu, const char *path)
     };
 
     llvm->module = LLVMModuleCreateWithName(path);
-    llvm->memory = LLVMAddGlobal(llvm->module, memory_type, "memory");
-    LLVMSetInitializer(llvm->memory, LLVMConstNull(memory_type));
+    llvm->memory = LLVMAddGlobal(llvm->module, LLVMPointerType(LLVMInt8Type(), 0), "memory");
     llvm->cpu = LLVMAddGlobal(llvm->module, LLVMArrayType(LLVMInt8Type(), sizeof(struct S390CPU)), "cpu");
     llvm->cpu_env = LLVMConstGEP(llvm->cpu, llvm_env_offsets, ARRAY_SIZE(llvm_env_offsets));
     llvm->pc = LLVMConstBitCast(
@@ -266,10 +264,10 @@ static LLVMValueRef llvm_base_offset(struct llvm *llvm, struct TCGContext *s, TC
         LLVMValueRef llvm_base = llvm_var_value(llvm, s, base);
         LLVMValueRef llvm_addr = LLVMBuildAdd(llvm->builder, llvm_base, llvm_offset, llvm_unnamed);
         LLVMValueRef llvm_offsets[] = {
-            LLVMConstInt(LLVMInt32Type(), 0, false),
             llvm_addr,
         };
-        i8_ptr = LLVMBuildGEP(llvm->builder, llvm->memory, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
+        i8_ptr = LLVMBuildLoad(llvm->builder, llvm->memory, llvm_unnamed);
+        i8_ptr = LLVMBuildGEP(llvm->builder, i8_ptr, llvm_offsets, ARRAY_SIZE(llvm_offsets), llvm_unnamed);
     }
     return LLVMBuildBitCast(llvm->builder, i8_ptr, LLVMPointerType(type, 0), llvm_unnamed);
 }

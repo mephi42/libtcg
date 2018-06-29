@@ -14,7 +14,7 @@
 
 extern struct CPUState cpu;
 extern struct S390CPUDef cpu_def;
-extern char memory[];
+char *memory;
 extern const char memory_init[];
 extern const int32_t memory_init_size;
 extern void dispatch();
@@ -103,6 +103,9 @@ int main(int argc, char **argv)
     if (qemu_loglevel_mask(CPU_LOG_TB_CPU))
         flags |= FLAG_CPU_DUMP_STATE;
 
+    memory = malloc(ram_size);
+    if (!memory)
+        abort();
     memcpy(memory, memory_init, memory_init_size);
 
     switch (flags) {

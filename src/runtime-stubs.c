@@ -29,7 +29,7 @@
 extern struct S390CPU cpu;
 extern struct S390CPUModel cpu_model;
 extern struct S390CPUDef cpu_def;
-extern char memory[];
+extern char *memory;
 
 __attribute__((constructor))
 static void init_cpu()
@@ -228,7 +228,7 @@ static inline void update_tlb(CPUArchState *env, target_ulong addr, TCGMemOpIdx 
     CPUTLBEntry *tlbentry = &env->tlb_table[get_mmuidx(oi)][index];
 
     tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code = addr;
-    tlbentry->addend = (uintptr_t)&memory;
+    tlbentry->addend = (uintptr_t)memory;
 }
 
 

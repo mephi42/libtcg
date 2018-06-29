@@ -216,10 +216,6 @@ QEMU_CONFIG=\
 	--disable-sdl \
 	--disable-linux-aio \
 	--disable-numa
-ifeq ($(OS),Linux)
-QEMU_CONFIG+=\
-	--extra-cflags=-mcmodel=large
-endif
 
 .PHONY: configure-qemu
 configure-qemu:
