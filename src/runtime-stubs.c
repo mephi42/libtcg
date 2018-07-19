@@ -15,9 +15,11 @@
 #include "hw/s390x/s390-virtio-ccw.h"
 #include "hw/s390x/sclp.h"
 #include "hw/s390x/storage-keys.h"
+#include "hw/s390x/tod.h"
 #include "libtcg.h"
 #include "qapi/error.h"
 #include "qemu/cutils.h"
+#include "qemu/timer.h"
 #include "runtime-sclp.h"
 #include "sysemu/sysemu.h"
 #include "target/s390x/internal.h"
@@ -142,6 +144,8 @@ void do_stop_interrupt(CPUS390XState *env)
 {
     abort();
 }
+
+Error *error_abort;
 
 void error_setg_internal(Error **errp,
                          const char *src, int line, const char *func,
@@ -601,6 +605,11 @@ S390SKeysState *s390_get_skeys_device(void)
     abort();
 }
 
+S390TODState *s390_get_todstate(void)
+{
+    abort();
+}
+
 bool s390_has_feat(S390Feat feat)
 {
     abort();
@@ -652,6 +661,11 @@ TranslationBlock *tb_htable_lookup(CPUState *cpu, target_ulong pc,
 bool tcg_allowed = true;
 
 __thread TCGContext *tcg_ctx;
+
+void timer_del(QEMUTimer *ts)
+{
+    abort();
+}
 
 void timer_mod(QEMUTimer *ts, int64_t expire_timer)
 {
