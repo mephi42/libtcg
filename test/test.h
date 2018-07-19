@@ -2,8 +2,12 @@
 #define TEST_H
 
 /* target/s390x/cpu.h */
-#define PSW_MASK_32             0x0000000080000000ULL
 #define PSW_MASK_WAIT           0x0002000000000000ULL
+#define PSW_MASK_CC             0x0000300000000000ULL
+#define PSW_SHIFT_MASK_CC       44
+#define PSW_MASK_PM             0x00000F0000000000ULL
+#define PSW_SHIFT_MASK_PM       40
+#define PSW_MASK_32             0x0000000080000000ULL
 
 /* hw/s390x/ipl.c */
 #define LOWCORE_IPL_PSW         0x0

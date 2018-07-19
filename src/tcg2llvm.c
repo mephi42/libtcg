@@ -81,7 +81,12 @@ static LLVMValueRef llvm_pc(struct llvm *llvm, struct CPUState *cpu)
     LLVMValueRef pc = LLVMBuildLoad(llvm->builder, llvm->pc, "pc");
 
     if (S390_CPU(cpu)->env.psw.mask & PSW_MASK_32)
-        pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0x7fffffff, false), llvm_unnamed);
+        if (S390_CPU(cpu)->env.psw.mask & PSW_MASK_64)
+            ;
+        else
+            pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0x7fffffff, false), llvm_unnamed);
+    else
+        pc = LLVMBuildAnd(llvm->builder, pc, LLVMConstInt(LLVMTypeOf(pc), 0xffffff, false), llvm_unnamed);
     return pc;
 }
 

@@ -58,7 +58,8 @@ TESTS=\
 	test-basr \
 	test-clc \
 	test-pack \
-	test-cvb
+	test-cvb \
+	test-bal24
 
 BIN2LLVM=$(BUILD)/bin2llvm
 
@@ -83,8 +84,14 @@ RUNTIME_OBJECTS=\
 
 all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
 
+BIN2LLVM_OWN_OBJS=\
+	$(BUILD)/bin2llvm.o \
+	$(BUILD)/libtcg.o \
+	$(BUILD)/llvm-core-extras.o \
+	$(BUILD)/tcg2llvm.o
+
 clean:
-		rm -f $(BIN2LLVM)
+		rm -f $(BIN2LLVM) $(RUNTIME_OBJECTS) $(BIN2LLVM_OWN_OBJS)
 
 BIN2LLVM_EXCLUDE_OBJS=\
 	-a -not -path "$(QEMU_BUILD)/contrib/*.o" \
@@ -104,10 +111,7 @@ BIN2LLVM_EXCLUDE_OBJS+=\
 	-a -not -path "$(QEMU_BUILD)/hw/virtio/vhost-stub.o"
 endif
 BIN2LLVM_OBJS=\
-	$(BUILD)/bin2llvm.o \
-	$(BUILD)/libtcg.o \
-	$(BUILD)/llvm-core-extras.o \
-	$(BUILD)/tcg2llvm.o \
+	$(BIN2LLVM_OWN_OBJS) \
 	$(shell find $(QEMU_BUILD) -name "*.o" $(BIN2LLVM_EXCLUDE_OBJS)) \
 	$(QEMU_BUILD)/stubs/qmp_memory_device.o \
 	$(QEMU_BUILD)/stubs/slirp.o \
