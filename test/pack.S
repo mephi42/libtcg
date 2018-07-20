@@ -14,3 +14,4 @@
     xihf 2,0xaaaa0001
     xilf 2,0x234caaaa
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

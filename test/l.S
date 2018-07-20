@@ -12,3 +12,4 @@
     l 2,.Lmagic
     afi 2,-0x12345678
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

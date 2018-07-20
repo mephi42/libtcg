@@ -13,3 +13,4 @@
 .Ly:
     sr 2,14
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

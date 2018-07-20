@@ -13,3 +13,4 @@
     sr 2,14
     xilf 2,0x80000000
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

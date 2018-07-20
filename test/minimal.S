@@ -9,3 +9,4 @@
 .Lx:
     xgr 2,2
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

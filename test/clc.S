@@ -16,3 +16,4 @@
     ipm 2
     xilf 2,0x20000000
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

@@ -467,6 +467,10 @@ int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 void probe_write(CPUArchState *env, target_ulong addr, int size, int mmu_idx,
                  uintptr_t retaddr)
 {
+    if (addr + size > ram_size) {
+        s390_program_interrupt(env, PGM_ADDRESSING, ILEN_AUTO, retaddr);
+        abort();
+    }
 }
 
 DeviceState *qdev_create(BusState *bus, const char *name)

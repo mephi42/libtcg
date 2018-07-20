@@ -37,3 +37,4 @@
 .Lbadop2:
     llilf 2,0xbad02
     j .Lhalt
+    .org LINUX_HEAD_END

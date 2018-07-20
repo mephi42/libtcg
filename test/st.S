@@ -13,3 +13,4 @@
     st 2,.Lmagic
     s 2,.Lmagic
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

@@ -46,7 +46,8 @@ int main(int argc, char **argv)
         struct TCGContext *s;
         LLVMValueRef llvm_function;
 
-        fprintf(stderr, "pc = 0x%x\n", pc);
+        if (verbose)
+            fprintf(stderr, "pc = 0x%x\n", pc);
         s390_cpu->env.psw.addr = pc;
         s = libtcg_gen(cpu, disasm, sizeof(disasm));
         if (!s)

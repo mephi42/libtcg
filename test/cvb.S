@@ -13,3 +13,4 @@
     cvb 2,.Ldata
     xilf 2,0x000063fa
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

@@ -16,3 +16,4 @@
     mvc 0(1,1),0(2)
     xr 2,2
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

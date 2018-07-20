@@ -18,4 +18,6 @@
 #define LOWCORE_PROGRAM_NEW_PSW 0x1d0
 #define LOWCORE_END             0x200
 
+#define LINUX_HEAD_END          0x11000
+
 #endif

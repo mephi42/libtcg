@@ -12,3 +12,4 @@
 .Ly:
     xilf 2,((0x2 << 30) | (0x1 << 28) | (0xa << 24) | (.Ly - .zero))
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END

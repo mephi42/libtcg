@@ -16,3 +16,4 @@
     ag 2,2(1)
     aghi 2,-10
     lpswe .Lhalt_psw
+    .org LINUX_HEAD_END
