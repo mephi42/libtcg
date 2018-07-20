@@ -48,18 +48,7 @@ ifeq ($(OS),Darwin)
 LDFLAGS+=-framework IOKit
 endif
 
-TESTS=\
-	test-minimal \
-	test-pgm \
-	test-xc0 \
-	test-l \
-	test-st \
-	test-balr \
-	test-basr \
-	test-clc \
-	test-pack \
-	test-cvb \
-	test-bal24
+TESTS=$(foreach s,$(wildcard test/*.S),test-$(basename $(notdir $(s))))
 
 BIN2LLVM=$(BUILD)/bin2llvm
 

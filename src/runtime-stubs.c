@@ -467,7 +467,6 @@ int pcistg_service_call(S390CPU *cpu, uint8_t r1, uint8_t r2, uintptr_t ra)
 void probe_write(CPUArchState *env, target_ulong addr, int size, int mmu_idx,
                  uintptr_t retaddr)
 {
-    abort();
 }
 
 DeviceState *qdev_create(BusState *bus, const char *name)
