@@ -19,7 +19,7 @@
     lghi 0,0x0301
     la 1,.Lparmlist
     lg 3,.Lop1
-    .insn ssf,0xc80200000000,.Lop1,.Lop2,3
+    csst .Lop1,.Lop2,3
     jne .Lbadcc
     clc .Lop1(8),.Lreplacement
     jne .Lbadop1

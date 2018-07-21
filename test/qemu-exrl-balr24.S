@@ -3,15 +3,18 @@
     .org LOWCORE_IPL_PSW
     .long 0,.Lx
     .org LOWCORE_RESTART_NEW_PSW
-    .quad (0xa << PSW_SHIFT_MASK_PM),.Lx
+    .quad (0x5 << PSW_SHIFT_MASK_PM),.Lx
     .org LOWCORE_END
 .Lhalt_psw:
     .quad PSW_MASK_WAIT,0
+.Lbalr:
+    balr 0,2
 .Lx:
-    lghi 2,1
-    cfi 2,2
-    bal 2,.Ly
+    lghi 1,0x20
+    la 2,.Ly
+    cfi 1,1
+    exrl 1,.Lbalr
 .Ly:
-    xilf 2,((0x2 << 30) | (0x1 << 28) | (0xa << 24) | (.Ly - .zero))
+    xilf 2,((0x3 << 30) | (0x2 << 28) | (0x5 << 24) | (.Ly - .zero))
     lpswe .Lhalt_psw
     .org LINUX_HEAD_END

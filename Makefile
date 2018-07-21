@@ -48,7 +48,7 @@ ifeq ($(OS),Darwin)
 LDFLAGS+=-framework IOKit
 endif
 
-TESTS=$(foreach s,$(wildcard test/*.S),test-$(basename $(notdir $(s))))
+TESTS=$(foreach s,$(wildcard test/*.S),check-$(basename $(notdir $(s))))
 
 BIN2LLVM=$(BUILD)/bin2llvm
 
@@ -135,13 +135,13 @@ $(BIN2LLVM): $(BIN2LLVM_OBJS)
 .PRECIOUS: $(BUILD)/test/%-code.o
 $(BUILD)/test/%-code.o: test/%.S $(wildcard test/*.h)
 		mkdir -p $(shell dirname $@)
-		$(CROSS_GCC) -c -march=z9-109 -o $@ $<
+		$(CROSS_GCC) -c -march=zEC12 -o $@ $<
 
 .PRECIOUS: $(BUILD)/test/%.bin
-$(BUILD)/test/%.bin: $(BUILD)/test/%-code.o
+$(BUILD)/test/%.bin: $(BUILD)/test/%-code.o bin/qemu-system-$(TARGET)-trace $(QEMU_BUILD)/$(TARGET)-softmmu/qemu-system-$(TARGET)
 		$(CROSS_LD) -o $@.tmp -Ttext=0 --oformat=binary $<
 		$(CROSS_OBJDUMP) -b binary -m s390 -D $@.tmp >$(BUILD)/test/$*.txt
-		bin/qemu-system-s390x-trace -kernel $@.tmp -D $(BUILD)/test/$*.log
+		bin/qemu-system-$(TARGET)-trace -kernel $@.tmp -D $(BUILD)/test/$*.log
 		tail -9 <$(BUILD)/test/$*.log | head -1 | grep R02=0000000000000000 >/dev/null
 		mv $@.tmp $@
 
@@ -158,12 +158,12 @@ $(BUILD)/test/%.o: $(BUILD)/test/%.bc
 $(BUILD)/test/%: $(BUILD)/test/%.o $(RUNTIME_OBJECTS)
 		clang -o $@ $< $(RUNTIME_OBJECTS) $(shell pkg-config --libs glib-2.0)
 
-.PHONY: test-%
-test-%: $(BUILD)/test/%
-		$<
+.PHONY: check-%
+check-%: $(BUILD)/test/%
+		[[ $@ = check-qemu-* ]] || $<
 
-.PHONY: test
-test: $(TESTS)
+.PHONY: check
+check: $(TESTS)
 
 QEMU_CONFIG=\
 	--cpu=unknown \
