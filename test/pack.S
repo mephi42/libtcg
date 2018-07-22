@@ -4,8 +4,6 @@
     .org LOWCORE_RESTART_NEW_PSW
     .quad PSW_MASK_32,.Lx
     .org LOWCORE_END
-.Lhalt_psw:
-    .quad PSW_MASK_WAIT,0
 .Ldata:
     .byte 0xaa,0xaa,0xf1,0xf2,0xf3,0xc4,0xaa,0xaa
 .Lx:
@@ -13,5 +11,5 @@
     lg 2,.Ldata
     xihf 2,0xaaaa0001
     xilf 2,0x234caaaa
-    lpswe .Lhalt_psw
-    .org LINUX_HEAD_END
+    j .Lhalt
+TEST_END

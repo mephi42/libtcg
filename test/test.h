@@ -19,6 +19,17 @@
 #define LOWCORE_END             0x200
 
 /* arch/s390/kernel/head.S */
+#define LINUX_STARTUP           0x10000
 #define LINUX_HEAD_END          0x11000
+
+.macro TEST_END
+.Lhalt:
+    lpswe .Lhalt_psw
+.Lhalt_psw:
+    .quad PSW_MASK_WAIT,0
+    .org LINUX_STARTUP
+    j .Lx
+    .org LINUX_HEAD_END
+.endm
 
 #endif

@@ -5,8 +5,6 @@
     .org LOWCORE_RESTART_NEW_PSW
     .quad (0x5 << PSW_SHIFT_MASK_PM),.Lx
     .org LOWCORE_END
-.Lhalt_psw:
-    .quad PSW_MASK_WAIT,0
 .Lbalr:
     balr 0,2
 .Lx:
@@ -16,5 +14,5 @@
     exrl 1,.Lbalr
 .Ly:
     xilf 2,((0x3 << 30) | (0x2 << 28) | (0x5 << 24) | (.Ly - .zero))
-    lpswe .Lhalt_psw
-    .org LINUX_HEAD_END
+    j .Lhalt
+TEST_END

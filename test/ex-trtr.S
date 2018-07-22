@@ -5,8 +5,6 @@
     .org LOWCORE_RESTART_NEW_PSW
     .quad PSW_MASK_32,.Lx
     .org LOWCORE_END
-.Lhalt_psw:
-    .quad PSW_MASK_WAIT,0
 .Ltrtr:
     trtr .Lop1+3(1),.Lop2
 .Lop1:
@@ -24,8 +22,7 @@
     clfi 2,0xbb
     jne .Lbadr2
     xgr 2,2
-.Lhalt:
-    lpswe .Lhalt_psw
+    j .Lhalt
 .Lbadcc:
     lgfi 2,0xbadcc
     j .Lhalt
@@ -35,4 +32,4 @@
 .Lbadr2:
     lgfi 2,0xbad02
     j .Lhalt
-    .org LINUX_HEAD_END
+TEST_END
