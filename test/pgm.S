@@ -12,7 +12,7 @@
     lpswe LOWCORE_PROGRAM_OLD_PSW
 .Lx:
     xgr 1,1
-    llilf 2,0x7fffffff
+    lgfi 2,0x7fffffff
     mvc 0(1,1),0(2)
     xr 2,2
     lpswe .Lhalt_psw
