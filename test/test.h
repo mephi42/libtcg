@@ -25,6 +25,7 @@
 .macro TEST_END
 .Lhalt:
     lpswe .Lhalt_psw
+    .align 8
 .Lhalt_psw:
     .quad PSW_MASK_WAIT,0
     .org LINUX_STARTUP

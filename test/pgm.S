@@ -6,6 +6,7 @@
     .org LOWCORE_PROGRAM_NEW_PSW
     .quad PSW_MASK_32,.Lpgm
     .org LOWCORE_END
+    .align 8
 .Lpgm:
     lpswe LOWCORE_PROGRAM_OLD_PSW
 .Lx:
