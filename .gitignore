@@ -1,5 +1,7 @@
 build/
+gdb-build/
 qemu-build/
+qemu-kvm-build/
 llvm-build/
 .DS_Store
 libtcg.config

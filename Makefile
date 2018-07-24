@@ -9,14 +9,19 @@ OS=$(shell uname -s)
 UNAME=$(OS)-$(shell uname -m)
 QEMU=$(TOP)/qemu
 QEMU_BUILD=$(TOP)/qemu-build/$(UNAME)
+QEMU_KVM_BUILD=$(TOP)/qemu-kvm-build/$(UNAME)
 LLVM=$(TOP)/llvm
 LLVM_BUILD=$(TOP)/llvm-build/$(UNAME)
+GDB=$(TOP)/binutils-gdb
+GDB_BUILD=$(TOP)/gdb-build/$(UNAME)
 SRC=$(TOP)/src
 BUILD=$(TOP)/build/$(UNAME)
 OBJCOPY?=$(shell which gobjcopy 2>/dev/null || which objcopy)
-CROSS_GCC=$(shell which s390x-ibm-linux-gnu-gcc 2>/dev/null || which s390x-linux-gnu-gcc)
-CROSS_LD=$(shell which s390x-ibm-linux-gnu-ld 2>/dev/null || which s390x-linux-gnu-ld)
-CROSS_OBJDUMP=$(shell which s390x-ibm-linux-gnu-objdump 2>/dev/null || which s390x-linux-gnu-objdump)
+TRIPLE=s390x-ibm-linux-gnu
+TRIPLE2=s390x-linux-gnu
+CROSS_GCC=$(shell which $(TRIPLE)-gcc 2>/dev/null || which $(TRIPLE2)-gcc)
+CROSS_LD=$(shell which $(TRIPLE)-ld 2>/dev/null || which $(TRIPLE2)-ld)
+CROSS_OBJDUMP=$(shell which $(TRIPLE)-objdump 2>/dev/null || which $(TRIPLE2)-objdump)
 CFLAGS=\
 	-isystem $(QEMU_BUILD) \
 	-isystem $(QEMU_BUILD)/$(TARGET)-softmmu \
@@ -47,8 +52,6 @@ endif
 ifeq ($(OS),Darwin)
 LDFLAGS+=-framework IOKit
 endif
-
-TESTS=$(foreach s,$(wildcard test/*.S),check-$(basename $(notdir $(s))))
 
 BIN2LLVM=$(BUILD)/bin2llvm
 
@@ -158,16 +161,27 @@ $(BUILD)/test/%.o: $(BUILD)/test/%.bc
 $(BUILD)/test/%: $(BUILD)/test/%.o $(RUNTIME_OBJECTS)
 		clang -o $@ $< $(RUNTIME_OBJECTS) $(shell pkg-config --libs glib-2.0)
 
-.PHONY: check-%
-check-%: $(BUILD)/test/%
-		[[ $@ = check-qemu-* ]] || $<
+.PHONY: check-bin-%
+check-bin-%: $(BUILD)/test/%
+		[[ $@ = check-bin-qemu-* ]] || $<
 
 .PHONY: check
-check: $(TESTS)
+check: $(foreach s,$(wildcard test/*.S),check-bin-$(basename $(notdir $(s))))
 
-QEMU_CONFIG=\
-	--cpu=unknown \
-	--enable-tcg-interpreter \
+QEMU_KVM_ARGS=-enable-kvm -smp 1 -m 4096 -nographic -nodefaults -gdb stdio -S
+
+.PHONY: check-kvm-%
+check-kvm-%: $(BUILD)/test/%.bin
+		PYTHONPATH=$(GDB_BUILD)/gdb/data-directory/python $(GDB_BUILD)/gdb/gdb \
+			-batch \
+			-ex "target remote | $(QEMU_KVM_BUILD)/$(TARGET)-softmmu/qemu-system-$(TARGET) $(QEMU_KVM_ARGS) -kernel $<" \
+			-x share/gdb-insn-trace >$(BUILD)/test/$*-kvm.log
+		tail -17 $(BUILD)/test/$*-kvm.log | head -1 | grep 'r2[[:space:]]\+0x0[[:space:]]\+0' >/dev/null
+
+.PHONY: check-kvm
+check-kvm: $(foreach s,$(wildcard test/*.S),check-kvm-$(basename $(notdir $(s))))
+
+QEMU_CONFIG_COMMON=\
 	--target-list=$(TARGET)-softmmu \
 	--enable-debug \
 	--disable-fdt \
@@ -204,11 +218,20 @@ QEMU_CONFIG=\
 	--disable-guest-agent \
 	--disable-tpm \
 	--disable-replication \
-	--disable-kvm \
 	--disable-slirp \
 	--disable-sdl \
 	--disable-linux-aio \
-	--disable-numa
+	--disable-numa \
+	--disable-libnfs \
+	--disable-libssh2 \
+	--disable-glusterfs \
+	--disable-vde
+
+QEMU_CONFIG=\
+	$(QEMU_CONFIG_COMMON) \
+	--cpu=unknown \
+	--enable-tcg-interpreter \
+	--disable-kvm
 
 .PHONY: configure-qemu
 configure-qemu:
@@ -233,6 +256,32 @@ configure-llvm:
 .PHONY: build-llvm
 build-llvm:
 		cd $(LLVM_BUILD) && $(MAKE)
+
+QEMU_KVM_CONFIG=\
+	$(QEMU_CONFIG_COMMON) \
+	--enable-kvm
+
+.PHONY: configure-qemu-kvm
+configure-qemu-kvm:
+		mkdir -p $(QEMU_KVM_BUILD)
+		cd $(QEMU_KVM_BUILD) && $(QEMU)/configure $(QEMU_KVM_CONFIG)
+
+.PHONY: build-qemu-kvm
+build-qemu-kvm:
+		cd $(QEMU_KVM_BUILD) && $(MAKE)
+
+GDB_CONFIG=\
+	--target=$(TRIPLE) \
+	--without-guile
+
+.PHONY: configure-gdb
+configure-gdb:
+		mkdir -p $(GDB_BUILD)
+		cd $(GDB_BUILD) && $(GDB)/configure $(GDB_CONFIG)
+
+.PHONY: build-gdb
+build-gdb:
+		cd $(GDB_BUILD) && $(MAKE) all-gdb
 
 .PHONY: project
 project:

@@ -4,3 +4,6 @@
 [submodule "llvm"]
 	path = llvm
 	url = https://git.llvm.org/git/llvm.git
+[submodule "binutils-gdb"]
+	path = binutils-gdb
+	url = https://sourceware.org/git/binutils-gdb.git
