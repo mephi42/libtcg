@@ -172,7 +172,7 @@ QEMU_KVM_ARGS=-enable-kvm -smp 1 -m 4096 -nographic -nodefaults -gdb stdio -S
 
 .PHONY: check-kvm-%
 check-kvm-%: $(BUILD)/test/%.bin
-		PYTHONPATH=$(GDB_BUILD)/gdb/data-directory/python $(GDB_BUILD)/gdb/gdb \
+		bin/gdb \
 			-batch \
 			-ex "target remote | $(QEMU_KVM_BUILD)/$(TARGET)-softmmu/qemu-system-$(TARGET) $(QEMU_KVM_ARGS) -kernel $<" \
 			-x share/gdb-insn-trace >$(BUILD)/test/$*-kvm.log
