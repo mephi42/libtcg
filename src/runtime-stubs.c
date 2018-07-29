@@ -225,16 +225,18 @@ void helper_atomic_sto_be_mmu(CPUArchState *env, target_ulong addr, Int128 val,
 }
 
 // softmmu_template.h
-static inline void update_tlb(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi)
+static inline void update_tlb(CPUArchState *env, target_ulong addr,
+                              TCGMemOpIdx oi)
 {
     // cpu_ldst.h:406
     int index = (addr >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
     CPUTLBEntry *tlbentry = &env->tlb_table[get_mmuidx(oi)][index];
 
-    tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code = addr;
+    // mmu_helper.c:558
+    tlbentry->addr_read = tlbentry->addr_write = tlbentry->addr_code =
+            addr & TARGET_PAGE_MASK;
     tlbentry->addend = (uintptr_t)memory;
 }
-
 
 uint32_t helper_be_ldl_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr)
@@ -293,9 +295,10 @@ uint8_t helper_ret_ldb_cmmu(CPUArchState *env, target_ulong addr,
 tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
                                      TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    if (addr + sizeof(uint8_t) <= ram_size)
+    if (addr + sizeof(uint8_t) <= ram_size) {
+        update_tlb(env, addr, oi);
         return (uint8_t)memory[addr];
-    else {
+    } else {
         s390_program_interrupt(env, PGM_ADDRESSING, ILEN_AUTO, retaddr);
         abort();
     }
@@ -304,8 +307,13 @@ tcg_target_ulong helper_ret_ldub_mmu(CPUArchState *env, target_ulong addr,
 void helper_ret_stb_mmu(CPUArchState *env, target_ulong addr, uint8_t val,
                         TCGMemOpIdx oi, uintptr_t retaddr)
 {
-    update_tlb(env, addr, oi);
-    memory[addr] = (char)val;
+    if (addr + sizeof(uint8_t) <= ram_size) {
+        update_tlb(env, addr, oi);
+        memory[addr] = (char)val;
+    } else {
+        s390_program_interrupt(env, PGM_ADDRESSING, ILEN_AUTO, retaddr);
+        abort();
+    }
 }
 
 void ioinst_handle_chsc(S390CPU *cpu, uint32_t ipb, uintptr_t ra)
