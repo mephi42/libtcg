@@ -7,3 +7,6 @@
 [submodule "binutils-gdb"]
 	path = binutils-gdb
 	url = https://sourceware.org/git/binutils-gdb.git
+[submodule "clang"]
+	path = clang
+	url = https://git.llvm.org/git/clang.git

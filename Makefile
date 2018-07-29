@@ -13,6 +13,8 @@ QEMU_BUILD=$(TOP)/qemu-build/$(UNAME)
 QEMU_KVM_BUILD=$(TOP)/qemu-kvm-build/$(UNAME)
 LLVM=$(TOP)/llvm
 LLVM_BUILD=$(TOP)/llvm-build/$(UNAME)
+CLANG=$(TOP)/clang
+CLANG_BUILD=$(TOP)/clang-build/$(UNAME)
 GDB=$(TOP)/binutils-gdb
 GDB_BUILD=$(TOP)/gdb-build/$(UNAME)
 SRC=$(TOP)/src
@@ -75,9 +77,9 @@ RUNTIME_OBJECTS=\
 	$(BUILD)/src/runtime-stubs.bc \
 	$(MODULES_RUNTIME_OBJECTS)
 
-all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
+all: $(BIN2LLVM) $(RUNTIME_OBJECTS) $(QEMU_BUILD)/runtime-objects.txt
 
-deps: qemu llvm qemu-kvm gdb
+deps: qemu llvm clang qemu-kvm gdb
 
 BIN2LLVM_OWN_OBJS=\
 	$(BUILD)/bin2llvm.o \
@@ -132,7 +134,7 @@ CFLAGS_RUNTIME=\
 
 $(BUILD)/%.bc: %.c $(wildcard include/*.h)
 		mkdir -p $(shell dirname $@)
-		clang -c -emit-llvm $(CFLAGS_RUNTIME) -I$(QEMU_BUILD)/$(shell dirname $< | cut -d/ -f2-) $< -o $@
+		$(CLANG_BUILD)/bin/clang -c -emit-llvm $(CFLAGS_RUNTIME) -I$(QEMU_BUILD)/$(shell dirname $< | cut -d/ -f2-) $< -o $@
 
 $(BIN2LLVM): $(BIN2LLVM_OBJS)
 		mkdir -p $(shell dirname $@)
@@ -158,11 +160,11 @@ $(BUILD)/test/%.bc: $(BUILD)/test/%.bin $(BIN2LLVM)
 
 .PRECIOUS: $(BUILD)/test/%.o
 $(BUILD)/test/%.o: $(BUILD)/test/%.bc
-		clang -c -o $@ $<
+		$(CLANG_BUILD)/bin/clang -c -o $@ $<
 
 .PRECIOUS: $(BUILD)/test/%
 $(BUILD)/test/%: $(BUILD)/test/%.o $(RUNTIME_OBJECTS)
-		clang -o $@ $< $(RUNTIME_OBJECTS) $(shell pkg-config --libs glib-2.0)
+		$(CLANG_BUILD)/bin/clang -o $@ $< $(RUNTIME_OBJECTS) $(shell pkg-config --libs glib-2.0)
 
 .PHONY: check-bin-%
 check-bin-%: $(BUILD)/test/%
@@ -257,8 +259,17 @@ configure-llvm $(LLVM_BUILD)/Makefile:
 		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off -DLLVM_TARGETS_TO_BUILD="$(LLVM_TARGETS)" $(LLVM)
 
 .PHONY: llvm
-llvm: $(LLVM_BUILD)/Makefile
+llvm $(LLVM_BUILD)/bin/llvm-config: $(LLVM_BUILD)/Makefile
 		cd $(LLVM_BUILD) && $(MAKE)
+
+.PHONY: configure-clang
+configure-clang $(CLANG_BUILD)/Makefile: $(LLVM_BUILD)/bin/llvm-config
+		mkdir -p $(CLANG_BUILD)
+		cd $(CLANG_BUILD) && PATH=$(LLVM_BUILD)/bin:$$PATH cmake $(CLANG)
+
+.PHONY: clang
+clang: $(CLANG_BUILD)/Makefile
+		cd $(CLANG_BUILD) && $(MAKE)
 
 QEMU_KVM_CONFIG=\
 	$(QEMU_CONFIG_COMMON) \
@@ -285,6 +296,9 @@ configure-gdb $(GDB_BUILD)/Makefile:
 .PHONY: gdb
 gdb: $(GDB_BUILD)/Makefile
 		cd $(GDB_BUILD) && $(MAKE) all-gdb
+
+$(QEMU_BUILD)/runtime-objects.txt:
+		echo $(RUNTIME_OBJECTS) >$(QEMU_BUILD)/runtime-objects.txt
 
 .PHONY: project
 project:
