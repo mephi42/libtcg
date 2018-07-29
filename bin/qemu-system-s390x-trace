@@ -1,3 +1,3 @@
 #!/bin/sh
 set -e -u -x
-exec "$(dirname "$0")"/../qemu-build/$(uname -s)-$(uname -m)/s390x-softmmu/qemu-system-s390x -nographic -d cpu -smp 1 -m 4096 -singlestep "$@"
+exec "$(dirname "$0")/../qemu-build/$(uname -s)-$(uname -m)"/s390x-softmmu/qemu-system-s390x -nographic -d cpu -smp 1 -m 4096 -singlestep "$@"

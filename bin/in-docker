@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e -u -x
+cd "$(dirname "$0")/"..
+docker build -t libtcg-build docker/image
+exec docker run -it -v "$PWD:$PWD" -w "$PWD" -u "$(id -u):$(id -g)" libtcg-build "$@"

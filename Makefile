@@ -1,4 +1,5 @@
 TOP:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SHELL:=/bin/bash
 include env
 -include modules/Makefile.include
 
@@ -75,6 +76,8 @@ RUNTIME_OBJECTS=\
 	$(MODULES_RUNTIME_OBJECTS)
 
 all: $(BIN2LLVM) $(RUNTIME_OBJECTS)
+
+deps: qemu llvm qemu-kvm gdb
 
 BIN2LLVM_OWN_OBJS=\
 	$(BUILD)/bin2llvm.o \
@@ -234,7 +237,7 @@ QEMU_CONFIG=\
 	--disable-kvm
 
 .PHONY: configure-qemu
-configure-qemu:
+configure-qemu $(QEMU_BUILD)/Makefile:
 		mkdir -p $(QEMU_BUILD)
 		cd $(QEMU_BUILD) && $(QEMU)/configure $(QEMU_CONFIG)
 
@@ -242,19 +245,19 @@ ifeq ($(OS),Darwin)
 SYMBOL_PREFIX=_
 endif
 
-.PHONY: build-qemu
-build-qemu:
+.PHONY: qemu
+qemu: $(QEMU_BUILD)/Makefile
 		cd $(QEMU_BUILD) && $(MAKE)
 		$(OBJCOPY) --strip-symbol $(SYMBOL_PREFIX)main $(QEMU_BUILD)/vl.o $(QEMU_BUILD)/vl_nomain.o
 		$(OBJCOPY) --globalize-symbol $(SYMBOL_PREFIX)helper_table $(QEMU_BUILD)/$(TARGET)-softmmu/tcg/tcg.o $(QEMU_BUILD)/$(TARGET)-softmmu/tcg/tcg_with_helper_table.o
 
 .PHONY: configure-llvm
-configure-llvm:
+configure-llvm $(LLVM_BUILD)/Makefile:
 		mkdir -p $(LLVM_BUILD)
 		cd $(LLVM_BUILD) && cmake -DLLVM_ENABLE_TERMINFO=off -DLLVM_TARGETS_TO_BUILD="$(LLVM_TARGETS)" $(LLVM)
 
-.PHONY: build-llvm
-build-llvm:
+.PHONY: llvm
+llvm: $(LLVM_BUILD)/Makefile
 		cd $(LLVM_BUILD) && $(MAKE)
 
 QEMU_KVM_CONFIG=\
@@ -262,12 +265,12 @@ QEMU_KVM_CONFIG=\
 	--enable-kvm
 
 .PHONY: configure-qemu-kvm
-configure-qemu-kvm:
+configure-qemu-kvm $(QEMU_KVM_BUILD)/Makefile:
 		mkdir -p $(QEMU_KVM_BUILD)
 		cd $(QEMU_KVM_BUILD) && $(QEMU)/configure $(QEMU_KVM_CONFIG)
 
-.PHONY: build-qemu-kvm
-build-qemu-kvm:
+.PHONY: qemu-kvm
+qemu-kvm: $(QEMU_KVM_BUILD)/Makefile
 		cd $(QEMU_KVM_BUILD) && $(MAKE)
 
 GDB_CONFIG=\
@@ -275,12 +278,12 @@ GDB_CONFIG=\
 	--without-guile
 
 .PHONY: configure-gdb
-configure-gdb:
+configure-gdb $(GDB_BUILD)/Makefile:
 		mkdir -p $(GDB_BUILD)
 		cd $(GDB_BUILD) && $(GDB)/configure $(GDB_CONFIG)
 
-.PHONY: build-gdb
-build-gdb:
+.PHONY: gdb
+gdb: $(GDB_BUILD)/Makefile
 		cd $(GDB_BUILD) && $(MAKE) all-gdb
 
 .PHONY: project
