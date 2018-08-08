@@ -9,9 +9,10 @@
 .Lmagic2:
     .long 0x44444444
 .Lx:
-    xgr 2,2
+    lghi 2,-1
     clc .Lmagic1(4),.Lmagic2
     ipm 2
-    xilf 2,0x20000000
+    xihf 2,0xffffffff
+    xilf 2,0x20ffffff
     j .Lhalt
 TEST_END
